@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .contracts import inspect_repository
+from .execution_domains import (
+    ExecutionDomain,
+    ExecutionDomainError,
+    load_execution_domains,
+)
 from .git_evidence import GitEvidence, GitEvidenceError, collect_git_evidence
 
 TASK_PACKET_SCHEMA_VERSION = 1
@@ -69,6 +74,7 @@ class TaskPacket:
     contract: RepositoryContract
     git: GitEvidence
     scope: TaskScope
+    execution_domain: ExecutionDomain
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -85,6 +91,7 @@ class TaskPacket:
             },
             "git": self.git.to_dict(),
             "scope": self.scope.to_dict(),
+            "execution": self.execution_domain.to_dict(),
             "contract": {
                 "commands": dict(sorted(self.contract.commands.items())),
                 "protected_paths": list(self.contract.protected_paths),
@@ -96,11 +103,18 @@ class TaskPacket:
     def render_english(self) -> str:
         branch = self.git.branch or "detached HEAD"
         cleanliness = "dirty" if self.git.dirty else "clean"
+        capabilities = ", ".join(self.execution_domain.capabilities)
         lines = [
             f"Continuum compiled task packet {self.task_id}.",
             f"The task targets repository {self.contract.name} at {self.contract.root}.",
             f"Git HEAD is {self.git.head_sha} on {branch}.",
             f"The Git worktree is {cleanliness} with {len(self.git.status_entries)} status entries.",
+            (
+                f"The task targets execution domain {self.execution_domain.name} "
+                f"over {self.execution_domain.transport} transport."
+            ),
+            "The execution domain availability is unverified.",
+            f"The execution domain declares capabilities: {capabilities}.",
             f"The task owns {len(self.scope.owned)} scope entries.",
             f"The task forbids {len(self.scope.forbidden)} scope entries.",
             f"The repository requires {len(self.contract.required_evidence)} evidence artifacts.",
@@ -132,6 +146,7 @@ def _derive_task_id(
     contract: RepositoryContract,
     git: GitEvidence,
     scope: TaskScope,
+    execution_domain: ExecutionDomain,
 ) -> str:
     identity = {
         "repository": contract.name,
@@ -139,6 +154,7 @@ def _derive_task_id(
         "branch": git.branch,
         "owned": scope.owned,
         "forbidden": scope.forbidden,
+        "execution_domain": execution_domain.to_dict(),
     }
     payload = json.dumps(identity, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
@@ -150,6 +166,7 @@ def compile_task_packet(
     *,
     owned_scope: Iterable[str],
     forbidden_scope: Iterable[str],
+    domain_name: str | None = None,
     task_id: str | None = None,
     recent_limit: int = 5,
 ) -> TaskPacket:
@@ -188,6 +205,11 @@ def compile_task_packet(
     )
 
     try:
+        execution_domain = load_execution_domains(contract.root).resolve(domain_name)
+    except ExecutionDomainError as exc:
+        raise TaskPacketError(exc.code, str(exc)) from exc
+
+    try:
         git = collect_git_evidence(contract.root, recent_limit=recent_limit)
     except (GitEvidenceError, ValueError) as exc:
         raise TaskPacketError("git.unavailable", str(exc)) from exc
@@ -202,7 +224,11 @@ def compile_task_packet(
         )
 
     scope = TaskScope(owned=owned, forbidden=forbidden)
-    resolved_task_id = task_id.strip() if task_id else _derive_task_id(contract, git, scope)
+    resolved_task_id = (
+        task_id.strip()
+        if task_id
+        else _derive_task_id(contract, git, scope, execution_domain)
+    )
     if not resolved_task_id:
         raise TaskPacketError("task_id.empty", "The task ID must not be empty.")
 
@@ -211,4 +237,5 @@ def compile_task_packet(
         contract=contract,
         git=git,
         scope=scope,
+        execution_domain=execution_domain,
     )
