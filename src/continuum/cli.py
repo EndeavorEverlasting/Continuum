@@ -7,7 +7,9 @@ import json
 from pathlib import Path
 from typing import Sequence
 
+from .completion_gates import CompletionGateError, parse_evidence_argument
 from .contracts import inspect_repository
+from .result_packets import ResultPacketError, compile_result_packet, load_task_packet
 from .task_packets import TaskPacketError, compile_task_packet
 
 
@@ -80,6 +82,61 @@ def build_parser() -> argparse.ArgumentParser:
         dest="as_json",
         help="Emit the machine-readable task packet.",
     )
+
+    result = subcommands.add_parser(
+        "result",
+        help="Compile a result packet, completion gate, and workflow decision.",
+    )
+    result.add_argument(
+        "task_packet",
+        help="Path to a previously compiled Continuum task-packet JSON file.",
+    )
+    result.add_argument(
+        "--outcome",
+        required=True,
+        choices=("succeeded", "blocked", "failed"),
+        help="Reported task outcome.",
+    )
+    result.add_argument(
+        "--evidence",
+        action="append",
+        default=[],
+        metavar="NAME=STATUS=REFERENCE",
+        help=(
+            "Caller-reported required evidence. STATUS is passed, failed, or skipped. "
+            "Repeat for multiple evidence records."
+        ),
+    )
+    result.add_argument(
+        "--domain-availability",
+        default="unverified",
+        choices=("unverified", "observed", "unavailable"),
+        help="Caller-reported execution-domain availability.",
+    )
+    result.add_argument(
+        "--observed-capability",
+        action="append",
+        default=[],
+        help="Caller-reported observed capability. Repeat for multiple capabilities.",
+    )
+    result.add_argument(
+        "--domain-evidence",
+        help="Evidence reference required for observed or unavailable domain state.",
+    )
+    result.add_argument(
+        "--blocker-code",
+        help="Required structured blocker code for blocked or failed outcomes.",
+    )
+    result.add_argument(
+        "--blocker-message",
+        help="Required blocker explanation for blocked or failed outcomes.",
+    )
+    result.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Emit the machine-readable result packet.",
+    )
     return parser
 
 
@@ -116,5 +173,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(packet.render_english())
         return 0
+
+    if args.command == "result":
+        try:
+            task_document = load_task_packet(Path(args.task_packet))
+            evidence = tuple(parse_evidence_argument(item) for item in args.evidence)
+            packet = compile_result_packet(
+                task_document,
+                outcome=args.outcome,
+                evidence_records=evidence,
+                domain_availability=args.domain_availability,
+                observed_capabilities=args.observed_capability,
+                domain_evidence_reference=args.domain_evidence,
+                blocker_code=args.blocker_code,
+                blocker_message=args.blocker_message,
+            )
+        except (CompletionGateError, ResultPacketError) as exc:
+            structured = (
+                exc.to_dict()
+                if isinstance(exc, ResultPacketError)
+                else ResultPacketError(exc.code, str(exc)).to_dict()
+            )
+            if args.as_json:
+                print(json.dumps(structured, indent=2, sort_keys=True))
+            else:
+                print(f"Continuum blocked result-packet compilation: {exc}")
+            return 1
+
+        if args.as_json:
+            print(json.dumps(packet.to_dict(), indent=2, sort_keys=True))
+        else:
+            print(packet.render_english())
+        return 0 if packet.status == "ready" else 1
 
     raise AssertionError(f"Unhandled command: {args.command}")
