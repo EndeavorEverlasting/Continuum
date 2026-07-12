@@ -58,6 +58,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="One forbidden scope entry. Repeat the option for multiple entries.",
     )
     task.add_argument(
+        "--domain",
+        help=(
+            "Named execution domain from .continuum/execution-domains.json. "
+            "The registry default is used when omitted."
+        ),
+    )
+    task.add_argument(
         "--task-id",
         help="Optional caller-supplied task identifier.",
     )
@@ -93,6 +100,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 Path(args.path),
                 owned_scope=args.owned,
                 forbidden_scope=args.forbidden,
+                domain_name=args.domain,
                 task_id=args.task_id,
                 recent_limit=args.recent_commits,
             )
