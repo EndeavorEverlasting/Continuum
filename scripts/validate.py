@@ -1,4 +1,4 @@
-"""Run Continuum's dependency-free repository validation."""
+"""Run Continuum's repository validation."""
 
 from __future__ import annotations
 
@@ -123,7 +123,12 @@ def main() -> int:
         print("Continuum did not compile independent GitHub Actions completion proof.")
         return 1
 
-    import jsonschema
+    try:
+        import jsonschema
+    except ModuleNotFoundError:
+        print("Continuum validation requires the optional validation dependencies. Install them with: python -m pip install -e '.[validation]'.")
+        return 1
+
     proof_schema = json.loads((ROOT / "schemas" / "github-actions-proof.schema.json").read_text(encoding="utf-8"))
     try:
         jsonschema.validate(ci_proof.to_dict(), proof_schema)
