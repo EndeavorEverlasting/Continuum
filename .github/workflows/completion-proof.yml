@@ -1,0 +1,101 @@
+name: Completion Proof
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the verified commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile GitHub-owned completion proof
+        id: proof
+        continue-on-error: true
+        shell: bash
+        run: |
+          PYTHONPATH=src python - "$GITHUB_EVENT_PATH" <<'PY' > completion-proof.json
+          import json
+          from pathlib import Path
+          import sys
+
+          from continuum.github_actions import (
+              GitHubActionsError,
+              load_github_actions_policy,
+              load_workflow_run_event,
+              proof_from_workflow_run_event,
+          )
+
+          try:
+              policy = load_github_actions_policy(Path("."))
+              event = load_workflow_run_event(Path(sys.argv[1]))
+              proof = proof_from_workflow_run_event(policy, event)
+          except GitHubActionsError as exc:
+              print(json.dumps(exc.to_dict(), indent=2, sort_keys=True))
+              raise SystemExit(1)
+          print(json.dumps(proof.to_dict(), indent=2, sort_keys=True))
+          raise SystemExit(0 if proof.passed else 1)
+          PY
+      - name: Publish completion-proof summary
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          path = Path("completion-proof.json")
+          print("## Continuum completion proof")
+          if not path.is_file():
+              print("\nNo proof document was produced.")
+          else:
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              print(f"\n- Status: `{payload.get('status', 'blocked')}`")
+              repository = payload.get("repository") or {}
+              policy = payload.get("policy") or {}
+              if repository.get("commit_sha"):
+                  print(f"- Commit: `{repository['commit_sha']}`")
+              if policy.get("workflow"):
+                  print(f"- Workflow: `{policy['workflow']}`")
+              run = payload.get("run")
+              if run:
+                  print(f"- Run: [{run['id']}]({run['html_url']})")
+                  print(f"- Conclusion: `{run['conclusion']}`")
+              blocker = payload.get("blocker")
+              if blocker:
+                  print(f"- Blocker: `{blocker['code']}` - {blocker['message']}")
+          PY
+      - name: Upload immutable completion proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: continuum-completion-proof-${{ github.event.workflow_run.head_sha }}
+          path: completion-proof.json
+          if-no-files-found: error
+      - name: Enforce successful completion proof
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("completion-proof.json").read_text(encoding="utf-8"))
+          if payload.get("status") != "passed":
+              blocker = payload.get("blocker") or {}
+              raise SystemExit(f"Completion proof blocked: {blocker.get('code', 'unknown')}: {blocker.get('message', '')}")
+          PY

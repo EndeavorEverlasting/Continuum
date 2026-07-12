@@ -10,6 +10,15 @@ from typing import Sequence
 from .branch_topology import BranchTopologyError, evaluate_branch_topology, load_branch_policy, load_topology_snapshot
 from .completion_gates import CompletionGateError, parse_evidence_argument
 from .contracts import inspect_repository
+from .github_actions import (
+    DEFAULT_GITHUB_API_URL,
+    GitHubActionsError,
+    load_github_actions_policy,
+    load_workflow_run_event,
+    proof_from_workflow_run_event,
+    resolve_github_token,
+    wait_for_github_actions_proof,
+)
 from .result_packets import ResultPacketError, compile_result_packet, load_task_packet
 from .task_packets import TaskPacketError, compile_task_packet
 
@@ -35,6 +44,20 @@ def build_parser() -> argparse.ArgumentParser:
     topology.add_argument("snapshot", help="Path to a normalized branch-topology snapshot.")
     topology.add_argument("--repository", default=".", help="Repository whose contract supplies branch policy.")
     topology.add_argument("--json", action="store_true", dest="as_json")
+
+    ci_proof = subcommands.add_parser(
+        "ci-proof",
+        help="Independently verify the required GitHub Actions run for a commit.",
+    )
+    ci_proof.add_argument("path", nargs="?", default=".")
+    source = ci_proof.add_mutually_exclusive_group(required=True)
+    source.add_argument("--commit", help="Commit SHA whose push-triggered workflow must pass.")
+    source.add_argument("--event-file", help="GitHub workflow_run event payload to verify without network access.")
+    ci_proof.add_argument("--wait-seconds", type=float, default=0.0)
+    ci_proof.add_argument("--poll-seconds", type=float, default=5.0)
+    ci_proof.add_argument("--http-timeout-seconds", type=float, default=15.0)
+    ci_proof.add_argument("--api-url", default=DEFAULT_GITHUB_API_URL)
+    ci_proof.add_argument("--json", action="store_true", dest="as_json")
 
     result = subcommands.add_parser("result", help="Compile a result packet, conservative completion gate, and workflow decision.")
     result.add_argument("task_packet")
@@ -77,6 +100,32 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
         _emit(decision.to_dict(), as_json=args.as_json, english=decision.render_english())
         return 0 if decision.allowed else 1
+    if args.command == "ci-proof":
+        try:
+            policy = load_github_actions_policy(Path(args.path))
+            if args.event_file:
+                if args.wait_seconds:
+                    raise GitHubActionsError(
+                        "github_actions.wait_conflict",
+                        "Wait duration cannot be used with a completed workflow_run event file.",
+                    )
+                event_document = load_workflow_run_event(Path(args.event_file))
+                proof = proof_from_workflow_run_event(policy, event_document)
+            else:
+                proof = wait_for_github_actions_proof(
+                    policy,
+                    args.commit,
+                    wait_seconds=args.wait_seconds,
+                    poll_seconds=args.poll_seconds,
+                    token=resolve_github_token(),
+                    api_url=args.api_url,
+                    http_timeout_seconds=args.http_timeout_seconds,
+                )
+        except GitHubActionsError as exc:
+            _emit(exc.to_dict(), as_json=args.as_json, english=f"Continuum blocked GitHub Actions completion proof: {exc}")
+            return 1
+        _emit(proof.to_dict(), as_json=args.as_json, english=proof.render_english())
+        return 0 if proof.passed else 1
     if args.command == "result":
         try:
             task_document = load_task_packet(Path(args.task_packet))

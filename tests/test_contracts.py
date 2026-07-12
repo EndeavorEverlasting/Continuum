@@ -16,7 +16,7 @@ from continuum.contracts import inspect_repository  # noqa: E402
 
 VALID_CONTRACT = {
     "schema_version": 1,
-    "harness_version": "0.4.0",
+    "harness_version": "0.5.0",
     "repository": {"name": "Example", "default_branch": "main"},
     "branch_policy": {
         "canonical_base": "main",
@@ -24,6 +24,13 @@ VALID_CONTRACT = {
         "merge_green_predecessors_before_next_sprint": True,
         "require_clean_base": True,
         "require_current_canonical_base": True,
+    },
+    "completion_proof": {
+        "provider": "github_actions",
+        "repository": "Example/Repository",
+        "workflow": "CI",
+        "event": "push",
+        "required_conclusion": "success",
     },
     "commands": {"test": "python -m unittest"},
     "boundaries": {"protected_paths": [], "forbidden_operations": ["force_push"]},
@@ -87,6 +94,26 @@ class ContractInspectionTests(unittest.TestCase):
             write_contract(root, document)
             failed = {check.check_id for check in inspect_repository(root).checks if not check.passed}
             self.assertIn("branch_policy.stacked_pull_requests", failed)
+
+    def test_completion_proof_requires_github_repository_slug(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            document = json.loads(json.dumps(VALID_CONTRACT))
+            document["completion_proof"]["repository"] = "missing-owner"
+            write_contract(root, document)
+            failed = {check.check_id for check in inspect_repository(root).checks if not check.passed}
+            self.assertIn("completion_proof.repository", failed)
+
+    def test_completion_proof_requires_push_success_policy(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            document = json.loads(json.dumps(VALID_CONTRACT))
+            document["completion_proof"]["event"] = "pull_request"
+            document["completion_proof"]["required_conclusion"] = "neutral"
+            write_contract(root, document)
+            failed = {check.check_id for check in inspect_repository(root).checks if not check.passed}
+            self.assertIn("completion_proof.event", failed)
+            self.assertIn("completion_proof.required_conclusion", failed)
 
     def test_cli_emits_json_and_success_exit_code(self):
         with TemporaryDirectory() as directory:

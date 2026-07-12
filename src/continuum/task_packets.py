@@ -25,6 +25,7 @@ class RepositoryContract:
     name: str
     default_branch: str
     branch_policy: dict[str, Any]
+    completion_proof: dict[str, str]
     commands: dict[str, str]
     protected_paths: tuple[str, ...]
     forbidden_operations: tuple[str, ...]
@@ -75,6 +76,7 @@ class TaskPacket:
             "execution": self.execution_domain.to_dict(),
             "contract": {
                 "branch_policy": dict(sorted(self.contract.branch_policy.items())),
+                "completion_proof": dict(sorted(self.contract.completion_proof.items())),
                 "commands": dict(sorted(self.contract.commands.items())),
                 "protected_paths": list(self.contract.protected_paths),
                 "forbidden_operations": list(self.contract.forbidden_operations),
@@ -95,6 +97,7 @@ class TaskPacket:
             "The execution domain availability is unverified.",
             f"The execution domain declares capabilities: {capabilities}.",
             f"The canonical branch base is {self.contract.branch_policy['canonical_base']}.",
+            f"Canonical completion proof requires the {self.contract.completion_proof['workflow']} GitHub Actions workflow.",
             f"The task owns {len(self.scope.owned)} scope entries.",
             f"The task forbids {len(self.scope.forbidden)} scope entries.",
             f"The repository requires {len(self.contract.required_evidence)} evidence artifacts.",
@@ -122,6 +125,7 @@ def _derive_task_id(contract: RepositoryContract, git: GitEvidence, scope: TaskS
         "owned": scope.owned,
         "forbidden": scope.forbidden,
         "branch_policy": contract.branch_policy,
+        "completion_proof": contract.completion_proof,
         "execution_domain": execution_domain.to_dict(),
     }
     payload = json.dumps(identity, sort_keys=True, separators=(",", ":"))
@@ -152,6 +156,7 @@ def compile_task_packet(root: Path, *, owned_scope: Iterable[str], forbidden_sco
         name=repository["name"],
         default_branch=repository["default_branch"],
         branch_policy=branch_policy,
+        completion_proof=dict(document["completion_proof"]),
         commands=dict(document["commands"]),
         protected_paths=tuple(boundaries["protected_paths"]),
         forbidden_operations=tuple(boundaries["forbidden_operations"]),
