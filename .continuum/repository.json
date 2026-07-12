@@ -1,0 +1,33 @@
+{
+  "$schema": "../schemas/repository.schema.json",
+  "schema_version": 1,
+  "harness_version": "0.1.0",
+  "repository": {
+    "name": "Continuum",
+    "default_branch": "main"
+  },
+  "commands": {
+    "validate": "python scripts/validate.py",
+    "test": "python -m unittest discover -s tests -v",
+    "compile": "python -m compileall -q src tests scripts"
+  },
+  "boundaries": {
+    "protected_paths": [
+      "LICENSE"
+    ],
+    "forbidden_operations": [
+      "cross_repository_mutation_without_explicit_scope",
+      "network_execution_during_contract_inspection",
+      "runtime_claims_without_recorded_evidence",
+      "secret_or_credential_persistence"
+    ]
+  },
+  "evidence": {
+    "required": [
+      "git_status",
+      "changed_files",
+      "validation_results",
+      "commit_sha"
+    ]
+  }
+}
