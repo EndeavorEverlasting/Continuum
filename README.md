@@ -15,23 +15,27 @@ Continuum treats software development as a controlled loop among five actors:
 - **Environment:** Git, CI, runtime, artifact, and service signals.
 
 ```text
-observe -> classify -> select -> execute -> validate -> record -> transition
+observe -> classify -> compile task -> execute -> validate -> record -> transition
 ```
 
 The repository and its evidence carry continuity. A chat session or model does not.
 
 ## Current proof boundary
 
-Continuum `0.1.0` provides one small, executable foundation:
+Continuum `0.2.0` provides two executable foundations:
 
-- an embedded `.continuum/repository.json` contract;
-- a formal JSON Schema for that contract;
-- a dependency-free `doctor` command;
-- syntactic-English and JSON evidence output;
-- explicit nonzero failure behavior for missing or invalid contracts;
-- unit tests and CI validation.
+- dependency-free validation of an embedded `.continuum/repository.json` contract;
+- bounded task-packet compilation from that contract and read-only local Git evidence.
 
-It does **not** yet dispatch agents, mutate other repositories, schedule workflows, or claim autonomous software development.
+The task packet captures:
+
+- repository identity and declared commands;
+- protected paths, forbidden operations, and required evidence;
+- explicit owned and forbidden sprint scope;
+- Git root, branch, HEAD SHA, dirty state, short status, and recent commits;
+- a deterministic task ID suitable for handoff to any agent provider.
+
+Continuum does **not** yet execute commands, dispatch agents, record result packets, advance workflow states, mutate GitHub, or operate across repositories.
 
 ## Quick start
 
@@ -44,6 +48,19 @@ python -m pip install --no-deps -e .
 continuum doctor .
 continuum doctor . --json
 ```
+
+Compile a bounded task packet:
+
+```bash
+continuum task . \
+  --owned "task packet compiler" \
+  --owned "local Git evidence" \
+  --forbidden "network access" \
+  --forbidden "cross-repository mutation" \
+  --json
+```
+
+Both `--owned` and `--forbidden` are required and repeatable. Continum blocks rather than inventing missing scope.
 
 Run the repository checks:
 
@@ -60,7 +77,7 @@ A governed repository embeds `.continuum/repository.json`:
 ```json
 {
   "schema_version": 1,
-  "harness_version": "0.1.0",
+  "harness_version": "0.2.0",
   "repository": {
     "name": "Example",
     "default_branch": "main"
@@ -85,23 +102,23 @@ The central engine owns protocol and execution machinery. Each governed reposito
 ```text
 .continuum/                 Continuum's own embedded repository contract
 .github/workflows/          Automated validation
-schemas/                    Versioned contract schemas
+schemas/                    Repository and task-packet schemas
 docs/                       Architecture and operating doctrine
 scripts/                    Dependency-free repository validation
-src/continuum/              CLI and contract inspection
-tests/                      Executable contract and CLI behavior
+src/continuum/              Contract, Git-evidence, task-packet, and CLI code
+tests/                      Executable contract and task-packet behavior
 AGENTS.md                    Agent operating contract
 ```
 
 ## Next vertical slices
 
-1. Compile a bounded task packet from repository and Git evidence.
+1. Add result packets and deterministic completion gates.
 2. Model explicit workflow states and permitted transitions.
-3. Record result packets and deterministic completion gates.
-4. Add provider-neutral agent adapters behind the same task contract.
-5. Prove a complete loop in The Blacksmith Guild before extracting broader automation behavior.
+3. Execute only allow-listed repository commands from a task packet.
+4. Add provider-neutral agent adapters behind the same task/result contracts.
+5. Prove a complete loop in The Blacksmith Guild before enabling broader automation behavior.
 
-See [`docs/architecture.md`](docs/architecture.md) for actor boundaries, state ownership, and the current implementation boundary.
+See [`docs/architecture.md`](docs/architecture.md) for actor boundaries, task-packet contents, state ownership, and the current implementation boundary.
 
 ## License
 

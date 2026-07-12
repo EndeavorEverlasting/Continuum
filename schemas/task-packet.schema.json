@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EndeavorEverlasting/Continuum/schemas/task-packet.schema.json",
+  "title": "Continuum task packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "kind",
+    "task_id",
+    "status",
+    "repository",
+    "git",
+    "scope",
+    "contract"
+  ],
+  "properties": {
+    "$schema": {"const": "schemas/task-packet.schema.json"},
+    "schema_version": {"const": 1},
+    "kind": {"const": "continuum.task-packet"},
+    "task_id": {"type": "string", "minLength": 1},
+    "status": {"const": "ready"},
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "root", "default_branch", "harness_version"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "root": {"type": "string", "minLength": 1},
+        "default_branch": {"type": "string", "minLength": 1},
+        "harness_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_root",
+        "branch",
+        "detached",
+        "head_sha",
+        "dirty",
+        "status_entries",
+        "recent_commits"
+      ],
+      "properties": {
+        "repository_root": {"type": "string", "minLength": 1},
+        "branch": {"type": ["string", "null"]},
+        "detached": {"type": "boolean"},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "dirty": {"type": "boolean"},
+        "status_entries": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "recent_commits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sha", "subject"],
+            "properties": {
+              "sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+              "subject": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owned", "forbidden"],
+      "properties": {
+        "owned": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "forbidden": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commands",
+        "protected_paths",
+        "forbidden_operations",
+        "required_evidence"
+      ],
+      "properties": {
+        "commands": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {"type": "string", "minLength": 1}
+        },
+        "protected_paths": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "forbidden_operations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "required_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

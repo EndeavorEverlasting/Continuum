@@ -15,12 +15,24 @@ Continuum separates durable intent from repeatable execution so that a repositor
 ## Control loop
 
 ```text
-observe -> classify -> select -> execute -> validate -> record -> transition
-   ^                                                               |
-   +---------------------------------------------------------------+
+observe -> classify -> compile task -> execute -> validate -> record -> transition
+   ^                                                                      |
+   +----------------------------------------------------------------------+
 ```
 
 The loop continues only while policy, scope, and evidence permit it. Continuum stops with a structured blocker when human intent, unsafe access, novel reasoning, or missing proof prevents a safe transition.
+
+## Task packet boundary
+
+A task packet is a provider-neutral, immutable input assembled before an agent is invoked. Version `0.2.0` includes:
+
+- repository identity and harness version from `.continuum/repository.json`;
+- explicit owned and forbidden scope supplied by the governor or upstream workflow;
+- local Git root, branch or detached state, HEAD SHA, short status, and recent commits;
+- repository commands, protected paths, forbidden operations, and required evidence;
+- a deterministic task ID derived from repository state and scope.
+
+Task compilation is read-only and performs no network calls. A missing contract, invalid scope, non-Git directory, or contract/Git-root mismatch produces a machine-readable blocker and a nonzero exit code.
 
 ## State ownership
 
@@ -38,4 +50,4 @@ CI artifacts, checks, pull-request comments, and dedicated evidence stores may p
 
 ## Current implementation boundary
 
-Version `0.1.0` implements deterministic inspection of `.continuum/repository.json`. The `doctor` command reads a repository contract without mutation or network access and emits either syntactic-English evidence or structured JSON. Agent dispatch, workflow scheduling, GitHub mutation, and cross-repository execution remain future work and must not be represented as implemented.
+Version `0.2.0` implements deterministic repository-contract inspection and bounded task-packet compilation from local Git evidence. It does not execute repository commands, dispatch an agent, write result packets, advance workflow states, mutate GitHub, or operate across repositories. Those capabilities remain future work and must not be represented as implemed.
