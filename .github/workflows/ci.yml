@@ -20,14 +20,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install package and validation dependencies
+        run: python -m pip install -e ".[validation]"
       - name: Validate repository contracts and packets
         run: python scripts/validate.py
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
       - name: Compile Python sources
         run: python -m compileall -q src tests scripts
-      - name: Install package
-        run: python -m pip install --no-deps -e .
       - name: Exercise installed doctor command
         run: continuum doctor . --json
       - name: Prove caller-reported success cannot complete
