@@ -60,7 +60,7 @@ continuum task . \
   --json
 ```
 
-Both `--owned` and `--forbidden` are required and repeatable. Continum blocks rather than inventing missing scope.
+Both `--owned` and `--forbidden` are required and repeatable. Continuum blocks rather than inventing missing scope.
 
 Run the repository checks:
 

@@ -50,4 +50,4 @@ CI artifacts, checks, pull-request comments, and dedicated evidence stores may p
 
 ## Current implementation boundary
 
-Version `0.2.0` implements deterministic repository-contract inspection and bounded task-packet compilation from local Git evidence. It does not execute repository commands, dispatch an agent, write result packets, advance workflow states, mutate GitHub, or operate across repositories. Those capabilities remain future work and must not be represented as implemed.
+Version `0.2.0` implements deterministic repository-contract inspection and bounded task-packet compilation from local Git evidence. It does not execute repository commands, dispatch an agent, write result packets, advance workflow states, mutate GitHub, or operate across repositories. Those capabilities remain future work and must not be represented as implemented.
