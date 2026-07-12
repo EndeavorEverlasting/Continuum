@@ -40,6 +40,7 @@ jobs:
       - name: Exercise installed task command
         run: >-
           continuum task .
+          --domain local-inspection
           --owned "Continuum repository validation"
           --forbidden "network access"
           --forbidden "cross-repository mutation"
