@@ -1,0 +1,84 @@
+{
+  "$schema": "../schemas/harness-contribution.schema.json",
+  "schema_version": 1,
+  "kind": "continuum.harness-contribution-manifest",
+  "source": {
+    "repository": "EndeavorEverlasting/BlacksmithGuild",
+    "commit_sha": "79b3fffa9b1d7f85c3247d3be23f081b0efc6cec",
+    "authority_paths": [
+      "AGENTS.md",
+      ".tbg/skills/manifest.json",
+      ".tbg/workflows/harness-skill-maturity.contract.json"
+    ]
+  },
+  "contributions": [
+    {
+      "id": "harness-skill-maturity",
+      "title": "Harness versus skill maturity classifier",
+      "source_paths": [
+        ".tbg/workflows/harness-skill-maturity.contract.json",
+        ".tbg/skills/harness-maturity/SKILL.md"
+      ],
+      "classification": "portable_harness",
+      "maturity": "merged",
+      "target_layer": "continuum_harness",
+      "capabilities": [
+        "classify cross-cutting orchestration separately from domain behavior",
+        "reject harness percentage chasing",
+        "require an explicit pain point and minimal surface"
+      ],
+      "rationale": "The classification rules apply across repositories and protect Continuum from absorbing game-specific behavior while shared harness utilities are factored upward."
+    },
+    {
+      "id": "repo-floor-hygiene",
+      "title": "Repository floor and worktree hygiene skill",
+      "source_paths": [
+        ".tbg/skills/repo-floor-hygiene/SKILL.md",
+        ".tbg/skills/manifest.json"
+      ],
+      "classification": "repo_skill",
+      "maturity": "merged",
+      "target_layer": "continuum_skill",
+      "capabilities": [
+        "map PRs branches worktrees conflicts and safe bases",
+        "separate cleanup from feature implementation",
+        "block destructive cleanup without proof"
+      ],
+      "rationale": "Continuum owns durable development-state coordination, so the narrow repo-floor skill is a natural consumer-facing layer above its topology and evidence contracts."
+    },
+    {
+      "id": "agent-skill-factoring",
+      "title": "Common-agent rules and targeted-skill factoring",
+      "source_paths": [
+        ".tbg/skills/agent-skill-factoring/SKILL.md",
+        ".tbg/skills/manifest.json"
+      ],
+      "classification": "repo_skill",
+      "maturity": "merged",
+      "target_layer": "continuum_skill",
+      "capabilities": [
+        "keep root agent rules as the common denominator",
+        "route conditional knowledge through targeted skills",
+        "preserve executable contracts as authority"
+      ],
+      "rationale": "The pattern reduces repeated prompt load across apps while leaving each repository's executable contracts authoritative."
+    },
+    {
+      "id": "operator-terminal-environment",
+      "title": "Operator terminal environment boundary",
+      "source_paths": [
+        ".tbg/skills/operator-terminal-environment/SKILL.md",
+        ".tbg/workflows/operator-terminal-environment.contract.json"
+      ],
+      "classification": "repo_skill",
+      "maturity": "merged",
+      "target_layer": "reference_only",
+      "capabilities": [
+        "separate operator ergonomics from runtime proof",
+        "avoid vendoring personal terminal configuration",
+        "expose clean commands without making tools repo dependencies"
+      ],
+      "rationale": "Continuum should learn from this boundary, but terminal profiles and game-operator workflows remain outside the first portable implementation slice."
+    }
+  ]
+}
