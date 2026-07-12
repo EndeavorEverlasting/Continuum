@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EndeavorEverlasting/Continuum/schemas/execution-domain-snapshot.schema.json",
+  "title": "Continuum execution-domain snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "domain",
+    "state",
+    "verification",
+    "evidence_reference"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": 1},
+    "kind": {"const": "continuum.execution-domain-snapshot"},
+    "domain": {"type": "string", "minLength": 1, "pattern": "^(?!\\s)(?:.*\\S)?$"},
+    "state": {
+      "enum": ["unverified", "detached", "attached", "unavailable"]
+    },
+    "verification": {
+      "enum": ["unverified", "caller_reported", "independently_verified"]
+    },
+    "evidence_reference": {
+      "type": ["string", "null"],
+      "minLength": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"state": {"const": "unverified"}},
+        "required": ["state"]
+      },
+      "then": {
+        "properties": {
+          "verification": {"const": "unverified"},
+          "evidence_reference": {"type": "null"}
+        }
+      },
+      "else": {
+        "properties": {
+          "verification": {
+            "enum": ["caller_reported", "independently_verified"]
+          },
+          "evidence_reference": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  ]
+}

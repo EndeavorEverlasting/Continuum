@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EndeavorEverlasting/Continuum/schemas/execution-domain-decision.schema.json",
+  "title": "Continuum execution-domain action decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "domain",
+    "action",
+    "allowed",
+    "applied",
+    "current_state",
+    "resulting_state",
+    "verification",
+    "evidence_reference",
+    "code",
+    "message"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": 1},
+    "kind": {"const": "continuum.execution-domain-decision"},
+    "domain": {"type": "string", "minLength": 1},
+    "action": {"enum": ["attach", "detach", "spawn"]},
+    "allowed": {"type": "boolean"},
+    "applied": {"const": false},
+    "current_state": {
+      "enum": ["unverified", "detached", "attached", "unavailable"]
+    },
+    "resulting_state": {
+      "enum": ["detached", "attached", null]
+    },
+    "verification": {
+      "enum": ["unverified", "caller_reported", "independently_verified"]
+    },
+    "evidence_reference": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "code": {"type": "string", "minLength": 1},
+    "message": {"type": "string", "minLength": 1}
+  }
+}
