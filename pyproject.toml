@@ -22,6 +22,9 @@ classifiers = [
 ]
 dependencies = []
 
+[project.optional-dependencies]
+validation = ["jsonschema>=4.22,<5"]
+
 [project.scripts]
 continuum = "continuum.cli:main"
 
