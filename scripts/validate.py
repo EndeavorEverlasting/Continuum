@@ -10,10 +10,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from continuum.contracts import inspect_repository  # noqa: E402
+from continuum.execution_domains import (  # noqa: E402
+    ExecutionDomainError,
+    load_execution_domains,
+)
 from continuum.task_packets import TaskPacketError, compile_task_packet  # noqa: E402
 
 SCHEMA_PATHS = (
     ROOT / "schemas" / "repository.schema.json",
+    ROOT / "schemas" / "execution-domains.schema.json",
     ROOT / "schemas" / "task-packet.schema.json",
 )
 
@@ -39,23 +44,42 @@ def main() -> int:
         return 1
 
     try:
+        domain = load_execution_domains(ROOT).resolve()
+    except ExecutionDomainError as exc:
+        print(f"Continuum could not load its execution-domain registry: {exc}")
+        return 1
+
+    if (
+        domain.name != "local-inspection"
+        or domain.capabilities != ("inspect",)
+        or domain.auto_start
+    ):
+        print("Continuum's default execution domain must remain inspection-only.")
+        return 1
+
+    try:
         packet = compile_task_packet(
             ROOT,
             owned_scope=["Continuum repository validation"],
             forbidden_scope=["network access", "cross-repository mutation"],
+            domain_name=domain.name,
         )
     except TaskPacketError as exc:
         print(f"Continuum could not compile its validation task packet: {exc}")
         return 1
 
     payload = packet.to_dict()
-    if payload.get("status") != "ready" or payload.get("kind") != "continuum.task-packet":
+    if (
+        payload.get("status") != "ready"
+        or payload.get("kind") != "continuum.task-packet"
+        or payload.get("execution", {}).get("availability") != "unverified"
+    ):
         print("Continuum compiled an invalid task-packet envelope.")
         return 1
 
     print(
         "Continuum compiled validation task packet "
-        f"{packet.task_id} from local contract and Git evidence."
+        f"{packet.task_id} for unverified execution domain {domain.name}."
     )
     return 0
 
