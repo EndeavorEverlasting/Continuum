@@ -66,10 +66,21 @@ def load_github_actions_policy(root:Path)->GitHubActionsPolicy:
     if conclusion!='success': raise GitHubActionsError('github_actions.conclusion_invalid',"Canonical completion proof requires the 'success' conclusion.")
     return GitHubActionsPolicy(slug,workflow,event,conclusion,branch)
 
+def _positive_integer(value:Any, label:str)->int:
+    if isinstance(value,bool):
+        raise GitHubActionsError('github_actions.run_invalid',f'{label} must be a positive integer.')
+    try:
+        parsed=int(value)
+    except (TypeError,ValueError) as exc:
+        raise GitHubActionsError('github_actions.run_invalid',f'{label} must be a positive integer.') from exc
+    if parsed<=0:
+        raise GitHubActionsError('github_actions.run_invalid',f'{label} must be a positive integer.')
+    return parsed
+
 def _run(raw:Mapping[str,Any])->WorkflowRun:
     repo=raw.get('repository'); repo=repo.get('full_name') if isinstance(repo,Mapping) else repo
-    try: run_id=int(raw.get('id')); attempt=int(raw.get('run_attempt') or 1)
-    except (TypeError,ValueError) as exc: raise GitHubActionsError('github_actions.run_invalid','Workflow runs require integer id and run_attempt fields.') from exc
+    run_id=_positive_integer(raw.get('id'),'Workflow run id')
+    attempt=_positive_integer(raw.get('run_attempt'),'Workflow run attempt')
     return WorkflowRun(run_id,_text(repo,'github_actions.run_invalid','Run repository'),_text(raw.get('name'),'github_actions.run_invalid','Run name'),_text(raw.get('path'),'github_actions.run_invalid','Run path'),_text(raw.get('event'),'github_actions.run_invalid','Run event'),_text(raw.get('status'),'github_actions.run_invalid','Run status'),raw.get('conclusion') if isinstance(raw.get('conclusion'),str) else None,_text(raw.get('head_branch'),'github_actions.run_invalid','Run head branch'),_sha(raw.get('head_sha')),_text(raw.get('html_url'),'github_actions.run_invalid','Run URL'),attempt)
 
 def _proof(policy,sha,source,run=None,code=None,message=None):
@@ -94,7 +105,9 @@ def evaluate_github_actions_runs(policy:GitHubActionsPolicy,commit_sha:str,runs:
 
 def proof_from_workflow_run_event(policy,event_document):
     if not isinstance(event_document,Mapping) or not isinstance(event_document.get('workflow_run'),Mapping): raise GitHubActionsError('github_actions.event_document_invalid','The GitHub event document must contain a workflow_run object.')
-    raw=event_document['workflow_run']; return evaluate_github_actions_runs(policy,_sha(raw.get('head_sha')),[raw],source='github-workflow-run-event')
+    raw=event_document['workflow_run']
+    _run(raw)
+    return evaluate_github_actions_runs(policy,_sha(raw.get('head_sha')),[raw],source='github-workflow-run-event')
 
 def load_workflow_run_event(path:Path):
     try: doc=json.loads(path.expanduser().resolve().read_text(encoding='utf-8'))

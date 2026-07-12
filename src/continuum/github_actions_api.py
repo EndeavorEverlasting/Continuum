@@ -3,7 +3,7 @@ from __future__ import annotations
 import json,time
 from typing import Any,Callable,Mapping
 from urllib.error import HTTPError,URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode,urlsplit
 from urllib.request import Request,urlopen
 from .github_actions import GitHubActionsError,GitHubActionsPolicy,GitHubActionsProof,RETRYABLE_BLOCKERS,evaluate_github_actions_runs,_proof,_sha
 
@@ -20,11 +20,21 @@ def _fetch(url,headers,timeout):
     if not isinstance(doc,dict): raise GitHubActionsError('github_actions.response_invalid','GitHub Actions API response must be a JSON object.')
     return doc
 
+def _api_base(api_url:str,token:str|None)->str:
+    if not isinstance(api_url,str) or not api_url.strip():
+        raise GitHubActionsError('github_actions.api_url_invalid','GitHub API URL must be a non-empty HTTPS URL.')
+    candidate=api_url.strip().rstrip('/')
+    parsed=urlsplit(candidate)
+    if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise GitHubActionsError('github_actions.api_url_invalid','GitHub API URL must be a credential-free HTTPS URL without query or fragment data.')
+    if token and candidate!=DEFAULT_GITHUB_API_URL:
+        raise GitHubActionsError('github_actions.api_url_untrusted','Authenticated GitHub API requests must use https://api.github.com.')
+    return candidate
+
 def fetch_github_actions_proof(policy:GitHubActionsPolicy,commit_sha:str,*,token:str|None=None,api_url:str=DEFAULT_GITHUB_API_URL,timeout_seconds:float=15.0,fetch_json:JsonFetcher=_fetch)->GitHubActionsProof:
     sha=_sha(commit_sha)
     if timeout_seconds<=0: raise GitHubActionsError('github_actions.timeout_invalid','HTTP timeout must be greater than zero seconds.')
-    base=api_url.strip().rstrip('/')
-    if not base: raise GitHubActionsError('github_actions.api_url_invalid','GitHub API URL must be a non-empty string.')
+    base=_api_base(api_url,token)
     query=urlencode({'head_sha':sha,'branch':policy.branch,'event':policy.event,'per_page':100})
     url=f'{base}/repos/{policy.repository}/actions/runs?{query}'
     headers={'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'continuum-orchestrator'}
