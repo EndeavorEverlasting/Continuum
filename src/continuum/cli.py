@@ -85,7 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     result = subcommands.add_parser(
         "result",
-        help="Compile a result packet, completion gate, and workflow decision.",
+        help="Compile a result packet, conservative completion gate, and workflow decision.",
     )
     result.add_argument(
         "task_packet",
@@ -104,24 +104,24 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME=STATUS=REFERENCE",
         help=(
             "Caller-reported required evidence. STATUS is passed, failed, or skipped. "
-            "Repeat for multiple evidence records."
+            "Reported passes remain unverified until an independent verifier exists."
         ),
     )
     result.add_argument(
         "--domain-availability",
         default="unverified",
-        choices=("unverified", "observed", "unavailable"),
-        help="Caller-reported execution-domain availability.",
+        choices=("unverified",),
+        help="Execution-domain availability. Only unverified is accepted until an adapter verifier exists.",
     )
     result.add_argument(
         "--observed-capability",
         action="append",
         default=[],
-        help="Caller-reported observed capability. Repeat for multiple capabilities.",
+        help="Reserved for a future independently verified domain adapter.",
     )
     result.add_argument(
         "--domain-evidence",
-        help="Evidence reference required for observed or unavailable domain state.",
+        help="Reserved for a future independently verified domain adapter.",
     )
     result.add_argument(
         "--blocker-code",

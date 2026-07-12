@@ -27,11 +27,11 @@ Continuum `0.3.0` provides four executable foundations:
 - dependency-free validation of an embedded `.continuum/repository.json` contract;
 - validation and resolution of named execution domains from `.continuum/execution-domains.json`;
 - bounded task-packet compilation from those contracts and read-only local Git evidence;
-- immutable result-packet compilation with structural completion gates, caller-reported domain observations, and explicit workflow-transition decisions.
+- immutable result-packet compilation with conservative completion gates and explicit workflow-transition decisions.
 
-A task packet captures repository identity, scope, Git state, proof requirements, and a named execution domain. A result packet binds reported evidence and outcome back to that task ID, evaluates whether required evidence structurally passed, and decides whether `ready -> completed` or `ready -> blocked` is permitted.
+A task packet captures repository identity, scope, Git state, proof requirements, and a named execution domain. A result packet binds reported evidence and outcome back to that task ID. Caller-reported evidence can be recorded, but it cannot authorize completion. Until an independent verifier exists, an otherwise complete reported-success result remains `unverified`, returns a nonzero exit code, and blocks the `ready -> completed` transition.
 
-Continuum does **not** yet execute commands, verify referenced artifact contents, attach to terminals, apply workflow state, dispatch agents, mutate GitHub, or operate across repositories. Result evidence and domain observations are explicitly labeled `caller-reported`, and every transition is emitted with `applied: false`.
+Continuum does **not** yet execute commands, verify referenced artifact contents, independently observe domain state, attach to terminals, apply workflow state, dispatch agents, mutate GitHub, or operate across repositories. Every transition is emitted with `applied: false`.
 
 ## Quick start
 
@@ -56,7 +56,7 @@ continuum task . \
   --json > task-packet.json
 ```
 
-Compile a successful result packet only when every required evidence record has a status and durable reference:
+Record a reported successful result. The command intentionally exits nonzero because the references have not been independently verified:
 
 ```bash
 continuum result task-packet.json \
@@ -114,7 +114,7 @@ A repository separately declares where work could eventually run:
 
 Execution domains prevent the orchestrator, an agent, or a CLI command from treating an arbitrary shell as an implicit control surface. A declaration only describes policy and capability. It does not prove that a domain is attached, reachable, authenticated, or healthy.
 
-A result packet may record domain availability as `unverified`, `observed`, or `unavailable`. `observed` and `unavailable` require an evidence reference. Observed capabilities must be a subset of the capabilities declared by the task. Continuum records those statements as caller-reported evidence; it does not manufacture runtime proof.
+Result packets currently preserve domain availability as `unverified`. `observed` and `unavailable` states are rejected until a capability-checked adapter can independently verify and normalize the evidence.
 
 The domain model is informed by [WezTerm](https://github.com/wezterm/wezterm), whose multiplexer separates named local and remote domains, lifecycle, transport, and spawn behavior from its CLI. Continuum adopts that architectural boundary without vendoring WezTerm or claiming a terminal adapter. See [`docs/prior-art/wezterm.md`](docs/prior-art/wezterm.md).
 
@@ -125,12 +125,12 @@ A result packet contains:
 - a deterministic result ID and originating task ID;
 - repository and task HEAD identity;
 - caller-reported evidence records in `NAME=STATUS=REFERENCE` form;
-- a completion gate listing passed, failed, skipped, and missing evidence;
-- a caller-reported domain observation with optional observed capabilities;
+- a completion gate listing reported passes, failures, skips, missing evidence, and verification blockers;
+- an unverified domain observation;
 - a transition decision from `ready` to `completed` or `blocked`;
 - `applied: false`, because state persistence is outside the current proof boundary.
 
-A succeeded outcome permits completion only when every task-required evidence record is present and passed. Blocked and failed outcomes require a structured blocker and permit the blocked terminal decision without evaluating completion evidence as successful.
+A `succeeded` outcome does not permit completion from caller-reported statuses alone. Missing, failed, or skipped evidence produces a blocked gate; otherwise the gate remains `unverified` until a future independent verifier produces authoritative proof. Blocked and failed outcomes require a structured blocker and may permit the blocked terminal decision.
 
 ## Project structure
 
@@ -147,12 +147,13 @@ AGENTS.md                    Agent operating contract
 
 ## Next vertical slices
 
-1. Add verified artifact readers so completion gates can distinguish reported evidence from artifact-validated evidence.
-2. Persist workflow state and apply only previously permitted transitions.
-3. Execute allow-listed repository commands only through a capability-checked domain adapter.
-4. Add provider-neutral agent adapters behind the same task/result contracts.
-5. Evaluate a WezTerm CLI/multiplexer adapter after execution and evidence contracts are proven.
-6. Prove a complete loop in The Blacksmith Guild before enabling broader automation behavior.
+1. Add verified artifact readers so completion gates can distinguish reported evidence from independently validated evidence.
+2. Add branch-topology governance so unnecessary stacked PRs are rejected by policy.
+3. Persist workflow state and apply only previously permitted transitions.
+4. Execute allow-listed repository commands only through a capability-checked domain adapter.
+5. Add provider-neutral agent adapters behind the same task/result contracts.
+6. Evaluate a WezTerm CLI/multiplexer adapter after execution and evidence contracts are proven.
+7. Prove a complete loop in The Blacksmith Guild before enabling broader automation behavior.
 
 See [`docs/architecture.md`](docs/architecture.md) for actor boundaries, execution domains, packet contracts, state ownership, and the current implementation boundary.
 

@@ -20,7 +20,7 @@ observe -> classify -> compile task + domain -> execute -> record result -> gate
    +---------------------------------------------------------------------------------+
 ```
 
-The loop continues only while policy, scope, domain capability, evidence, and transition rules permit it. Continuum stops with a structured blocker when human intent, unsafe access, an undeclared execution target, missing proof, or a failed completion gate prevents a safe transition.
+The loop continues only while policy, scope, domain capability, independently verified evidence, and transition rules permit it. Continuum stops with a structured blocker when human intent, unsafe access, an undeclared execution target, missing proof, or an unverified completion gate prevents a safe transition.
 
 ## Execution-domain boundary
 
@@ -33,9 +33,9 @@ An execution domain identifies a bounded runtime target independently from the t
 | `lifecycle` | Whether Continuum may eventually manage the domain or must treat it as externally owned. |
 | `auto_start` | Explicit policy for future adapters; never inferred from transport. |
 | `capabilities` | Operations an adapter may eventually expose, such as inspect, spawn, attach, detach, read, or write. |
-| `availability` | Runtime evidence. Task compilation fixes this to `unverified`; result packets may carry caller-reported observations. |
+| `availability` | Runtime evidence. Task and result packets currently preserve this as `unverified`. |
 
-A task cannot authorize behavior that its domain does not declare. A declared capability is still not proof that behavior succeeded. A result packet may record observed or unavailable state only with an evidence reference, and observed capabilities must be a subset of the task declaration.
+A task cannot authorize behavior that its domain does not declare. A declared capability is still not proof that behavior succeeded. Observed or unavailable runtime state is rejected until a future adapter independently verifies and normalizes it.
 
 ### WezTerm prior art
 
@@ -67,30 +67,30 @@ Task compilation is read-only and performs no network calls or runtime probes.
 A result packet is an immutable decision input assembled after work is reported. It is tied to one task ID and contains:
 
 - caller-reported evidence records, each with a required name, status, and durable reference;
-- a deterministic completion gate over the task's required evidence names;
-- a caller-reported domain observation and optional observed capabilities;
+- a conservative completion gate over the task's required evidence names;
+- an unverified domain observation;
 - a structured blocker for blocked or failed outcomes;
 - a deterministic transition decision.
 
-Continuum does not read or verify referenced artifacts yet. The completion gate therefore proves structural completeness of the report, not truth of the underlying artifact. Evidence source is explicitly `caller-reported`.
+Continuum does not read or verify referenced artifacts yet. Caller-reported evidence is useful for transport and diagnostics, but it is not authoritative proof and cannot permit completion.
 
 ## Completion gates
 
-For a `succeeded` outcome, every required evidence record must be present and `passed`. Failed, skipped, or missing evidence blocks the completion decision. Unknown evidence names and duplicate records are rejected to prevent typo-driven false confidence.
+For a `succeeded` outcome, missing, failed, or skipped evidence blocks the gate. When every required caller-reported record is present and marked `passed`, the gate remains `unverified` with the blocker `independent evidence verification required`. Unknown evidence names, duplicate records, invalid types, and empty references are rejected.
 
 For `blocked` or `failed` outcomes, a structured blocker is mandatory. Completion evidence is marked `not_applicable`, and the workflow may move to the blocked terminal decision.
 
 ## Workflow transitions
 
-Version `0.3.0` models two result-driven decisions:
+Version `0.3.0` models these result-driven decisions:
 
 | Current state | Outcome | Gate | Decision |
 | --- | --- | --- | --- |
-| `ready` | `succeeded` | `passed` | allow `completed` |
-| `ready` | `succeeded` | blocked | block `completed` |
+| `ready` | `succeeded` | independently verified `passed` | allow `completed` |
+| `ready` | `succeeded` | `unverified` or blocked | block `completed` |
 | `ready` | `blocked` or `failed` | not applicable | allow `blocked` |
 
-Every result packet records `applied: false`. Continuum can decide whether a transition is permitted, but it does not yet persist or mutate workflow state.
+No current code path produces independently verified `passed` evidence. Every result packet records `applied: false`; Continuum does not persist or mutate workflow state.
 
 ## State ownership
 
@@ -108,4 +108,4 @@ CI artifacts, checks, pull-request comments, task packets, result packets, and d
 
 ## Current implementation boundary
 
-Version `0.3.0` implements deterministic repository-contract inspection, execution-domain registry validation, task-packet compilation, result-packet compilation, structural completion gates, caller-reported domain observations, and non-mutating workflow-transition decisions. It does not execute repository commands, verify referenced artifact contents, attach or detach a domain, apply workflow state, dispatch an agent, mutate GitHub, or operate across repositories.
+Version `0.3.0` implements deterministic repository-contract inspection, execution-domain registry validation, task-packet compilation, result-packet compilation, conservative completion gates, unverified domain observations, and non-mutating workflow-transition decisions. It does not execute repository commands, verify referenced artifact contents, independently observe domain state, apply workflow state, dispatch an agent, mutate GitHub, or operate across repositories.

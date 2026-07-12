@@ -16,7 +16,7 @@ from continuum.completion_gates import (  # noqa: E402
 
 
 class CompletionGateTests(unittest.TestCase):
-    def test_passes_when_all_required_evidence_passes(self) -> None:
+    def test_reported_passes_remain_unverified(self) -> None:
         gate = evaluate_completion_gate(
             ["commit_sha", "validation_results"],
             [
@@ -25,8 +25,8 @@ class CompletionGateTests(unittest.TestCase):
             ],
             applicable=True,
         )
-        self.assertEqual("passed", gate.status)
-        self.assertEqual((), gate.blockers)
+        self.assertEqual("unverified", gate.status)
+        self.assertIn("independent evidence verification required", gate.blockers)
 
     def test_blocks_missing_failed_and_skipped_evidence(self) -> None:
         gate = evaluate_completion_gate(
@@ -50,6 +50,20 @@ class CompletionGateTests(unittest.TestCase):
                 applicable=True,
             )
         self.assertEqual("evidence.unknown", raised.exception.code)
+
+    def test_rejects_empty_reference_from_programmatic_caller(self) -> None:
+        with self.assertRaises(CompletionGateError) as raised:
+            evaluate_completion_gate(
+                ["commit_sha"],
+                [EvidenceRecord("commit_sha", "passed", "")],
+                applicable=True,
+            )
+        self.assertEqual("evidence.reference_missing", raised.exception.code)
+
+    def test_rejects_invalid_record_type(self) -> None:
+        with self.assertRaises(CompletionGateError) as raised:
+            evaluate_completion_gate(["commit_sha"], [object()], applicable=True)
+        self.assertEqual("evidence.record_invalid", raised.exception.code)
 
     def test_parses_reference_with_equals_characters(self) -> None:
         record = parse_evidence_argument("commit_sha=passed=sha=abc123")

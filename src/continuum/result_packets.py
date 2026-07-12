@@ -43,7 +43,7 @@ class ResultPacketError(RuntimeError):
 
 @dataclass(frozen=True)
 class DomainObservation:
-    """Caller-reported domain state; never a Continuum-generated runtime claim."""
+    """Unverified domain state; verified observations require a future adapter."""
 
     name: str
     availability: str
@@ -104,7 +104,7 @@ class ResultPacket:
             f"Continuum compiled result packet {self.result_id} for task {self.task_id}.",
             f"The reported outcome is {self.outcome}.",
             (
-                f"The execution domain {self.domain_observation.name} is reported as "
+                f"The execution domain {self.domain_observation.name} remains "
                 f"{self.domain_observation.availability}."
             ),
             f"The completion gate is {self.completion_gate.status}.",
@@ -205,6 +205,36 @@ def _validate_task_packet(document: Mapping[str, Any]) -> dict[str, Any]:
     return fields
 
 
+def _normalize_observed_capabilities(value: Iterable[str]) -> tuple[str, ...]:
+    if isinstance(value, (str, bytes)):
+        raise ResultPacketError(
+            "domain_observation.capability_type",
+            "Observed capabilities must be an iterable of strings, not a single string.",
+        )
+    try:
+        items = tuple(value)
+    except TypeError as exc:
+        raise ResultPacketError(
+            "domain_observation.capability_type",
+            "Observed capabilities must be iterable.",
+        ) from exc
+    normalized: list[str] = []
+    for item in items:
+        if not isinstance(item, str) or not item.strip():
+            raise ResultPacketError(
+                "domain_observation.capability_type",
+                "Observed capabilities must be non-empty strings.",
+            )
+        normalized.append(item.strip())
+    result = tuple(sorted(normalized))
+    if len(set(result)) != len(result):
+        raise ResultPacketError(
+            "domain_observation.capability_duplicate",
+            "Observed domain capabilities must be unique.",
+        )
+    return result
+
+
 def _normalize_domain_observation(
     *,
     domain_name: str,
@@ -213,6 +243,11 @@ def _normalize_domain_observation(
     observed_capabilities: Iterable[str],
     evidence_reference: str | None,
 ) -> DomainObservation:
+    if not isinstance(availability, str):
+        raise ResultPacketError(
+            "domain_observation.availability_type",
+            "Domain availability must be a string.",
+        )
     availability = availability.strip()
     if availability not in ALLOWED_DOMAIN_AVAILABILITY:
         allowed = ", ".join(sorted(ALLOWED_DOMAIN_AVAILABILITY))
@@ -220,44 +255,39 @@ def _normalize_domain_observation(
             "domain_observation.availability_invalid",
             f"Unsupported domain availability {availability!r}. Allowed: {allowed}.",
         )
-    observed = tuple(sorted(item.strip() for item in observed_capabilities if item.strip()))
-    if len(set(observed)) != len(observed):
+    observed = _normalize_observed_capabilities(observed_capabilities)
+    if evidence_reference is not None and not isinstance(evidence_reference, str):
         raise ResultPacketError(
-            "domain_observation.capability_duplicate",
-            "Observed domain capabilities must be unique.",
+            "domain_observation.evidence_type",
+            "Domain evidence references must be strings.",
         )
-    unsupported = sorted(set(observed) - set(declared_capabilities))
-    if unsupported:
-        raise ResultPacketError(
-            "domain_observation.capability_undeclared",
-            f"Observed capabilities were not declared by the task: {', '.join(unsupported)}.",
-        )
+    reference = evidence_reference.strip() if isinstance(evidence_reference, str) else None
 
-    reference = evidence_reference.strip() if evidence_reference else None
-    if availability == "unverified":
-        if observed or reference:
-            raise ResultPacketError(
-                "domain_observation.unverified_conflict",
-                "An unverified domain cannot include observed capabilities or evidence.",
-            )
-    else:
-        if not reference:
-            raise ResultPacketError(
-                "domain_observation.evidence_missing",
-                f"Domain availability {availability!r} requires an evidence reference.",
-            )
-        if availability == "unavailable" and observed:
-            raise ResultPacketError(
-                "domain_observation.unavailable_conflict",
-                "An unavailable domain cannot include observed capabilities.",
-            )
+    if availability != "unverified":
+        raise ResultPacketError(
+            "domain_observation.verifier_required",
+            "Observed or unavailable domain state requires an independent domain adapter verifier.",
+        )
+    if observed or reference:
+        raise ResultPacketError(
+            "domain_observation.unverified_conflict",
+            "An unverified domain cannot include observed capabilities or evidence.",
+        )
 
     return DomainObservation(
         name=domain_name,
         availability=availability,
-        observed_capabilities=observed,
-        evidence_reference=reference,
+        observed_capabilities=(),
+        evidence_reference=None,
     )
+
+
+def _optional_text(value: Any, *, code: str, label: str) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ResultPacketError(code, f"{label} must be a string when supplied.")
+    return value.strip()
 
 
 def _normalize_blocker(
@@ -265,8 +295,8 @@ def _normalize_blocker(
     blocker_code: str | None,
     blocker_message: str | None,
 ) -> dict[str, str] | None:
-    code = blocker_code.strip() if blocker_code else ""
-    message = blocker_message.strip() if blocker_message else ""
+    code = _optional_text(blocker_code, code="result.blocker_type", label="Blocker code")
+    message = _optional_text(blocker_message, code="result.blocker_type", label="Blocker message")
     if outcome == "succeeded":
         if code or message:
             raise ResultPacketError(
@@ -301,6 +331,8 @@ def compile_result_packet(
     """Compile a result packet without executing commands or mutating workflow state."""
 
     task = _validate_task_packet(task_packet)
+    if not isinstance(outcome, str):
+        raise ResultPacketError("result.outcome_type", "Result outcome must be a string.")
     outcome = outcome.strip()
     if outcome not in ALLOWED_OUTCOMES:
         allowed = ", ".join(sorted(ALLOWED_OUTCOMES))
@@ -309,7 +341,18 @@ def compile_result_packet(
             f"Unsupported outcome {outcome!r}. Allowed: {allowed}.",
         )
     blocker = _normalize_blocker(outcome, blocker_code, blocker_message)
-    records = tuple(sorted(evidence_records, key=lambda record: record.name))
+    if isinstance(evidence_records, (str, bytes)):
+        raise ResultPacketError(
+            "evidence.records_invalid",
+            "Evidence records must be an iterable of EvidenceRecord values.",
+        )
+    try:
+        records = tuple(sorted(tuple(evidence_records), key=lambda record: record.name))
+    except (TypeError, AttributeError) as exc:
+        raise ResultPacketError(
+            "evidence.records_invalid",
+            "Evidence records must be sortable EvidenceRecord values.",
+        ) from exc
     try:
         completion_gate = evaluate_completion_gate(
             task["required_evidence"],

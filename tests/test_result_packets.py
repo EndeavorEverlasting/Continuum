@@ -57,7 +57,7 @@ TASK_PACKET = {
 
 
 class ResultPacketTests(unittest.TestCase):
-    def test_success_is_deterministic_and_allows_completion(self) -> None:
+    def test_reported_success_is_deterministic_but_cannot_complete(self) -> None:
         evidence = [
             EvidenceRecord("commit_sha", "passed", "abc123"),
             EvidenceRecord("validation_results", "passed", "artifacts/validation.json"),
@@ -66,9 +66,10 @@ class ResultPacketTests(unittest.TestCase):
         second = compile_result_packet(TASK_PACKET, outcome="succeeded", evidence_records=evidence)
         payload = first.to_dict()
         self.assertEqual(first.result_id, second.result_id)
-        self.assertEqual("ready", payload["status"])
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("unverified", payload["completion_gate"]["status"])
         self.assertEqual("completed", payload["transition"]["to"])
-        self.assertEqual("allowed", payload["transition"]["decision"])
+        self.assertEqual("blocked", payload["transition"]["decision"])
         self.assertFalse(payload["transition"]["applied"])
         self.assertEqual("unverified", payload["domain_observation"]["availability"])
 
@@ -98,50 +99,53 @@ class ResultPacketTests(unittest.TestCase):
         self.assertEqual("blocked", payload["transition"]["to"])
         self.assertEqual("allowed", payload["transition"]["decision"])
 
-    def test_observed_domain_requires_evidence_and_declared_capability(self) -> None:
-        with self.assertRaises(ResultPacketError) as missing:
+    def test_non_unverified_domain_state_requires_future_verifier(self) -> None:
+        for availability in ("observed", "unavailable"):
+            with self.subTest(availability=availability):
+                with self.assertRaises(ResultPacketError) as raised:
+                    compile_result_packet(
+                        TASK_PACKET,
+                        outcome="blocked",
+                        evidence_records=[],
+                        domain_availability=availability,
+                        domain_evidence_reference="artifacts/domain.json",
+                        blocker_code="test",
+                        blocker_message="test",
+                    )
+                self.assertEqual("domain_observation.verifier_required", raised.exception.code)
+
+    def test_domain_inputs_return_structured_type_errors(self) -> None:
+        with self.assertRaises(ResultPacketError) as availability:
             compile_result_packet(
                 TASK_PACKET,
                 outcome="blocked",
                 evidence_records=[],
-                domain_availability="observed",
+                domain_availability=None,  # type: ignore[arg-type]
                 blocker_code="test",
                 blocker_message="test",
             )
-        self.assertEqual("domain_observation.evidence_missing", missing.exception.code)
+        self.assertEqual("domain_observation.availability_type", availability.exception.code)
 
-        with self.assertRaises(ResultPacketError) as undeclared:
+        with self.assertRaises(ResultPacketError) as capability:
             compile_result_packet(
                 TASK_PACKET,
                 outcome="blocked",
                 evidence_records=[],
-                domain_availability="observed",
-                observed_capabilities=["spawn"],
-                domain_evidence_reference="artifacts/domain.json",
+                observed_capabilities=[42],  # type: ignore[list-item]
                 blocker_code="test",
                 blocker_message="test",
             )
-        self.assertEqual("domain_observation.capability_undeclared", undeclared.exception.code)
-
-    def test_observed_domain_is_recorded_as_caller_reported(self) -> None:
-        packet = compile_result_packet(
-            TASK_PACKET,
-            outcome="blocked",
-            evidence_records=[],
-            domain_availability="observed",
-            observed_capabilities=["inspect"],
-            domain_evidence_reference="artifacts/domain.json",
-            blocker_code="test.complete",
-            blocker_message="The test intentionally ends blocked.",
-        )
-        observation = packet.to_dict()["domain_observation"]
-        self.assertEqual("caller-reported", observation["source"])
-        self.assertEqual(["inspect"], observation["observed_capabilities"])
+        self.assertEqual("domain_observation.capability_type", capability.exception.code)
 
     def test_rejects_unknown_outcome_before_blocker_validation(self) -> None:
         with self.assertRaises(ResultPacketError) as raised:
             compile_result_packet(TASK_PACKET, outcome="maybe", evidence_records=[])
         self.assertEqual("result.outcome_invalid", raised.exception.code)
+
+    def test_rejects_non_string_outcome(self) -> None:
+        with self.assertRaises(ResultPacketError) as raised:
+            compile_result_packet(TASK_PACKET, outcome=None, evidence_records=[])  # type: ignore[arg-type]
+        self.assertEqual("result.outcome_type", raised.exception.code)
 
     def test_failed_outcome_requires_blocker(self) -> None:
         with self.assertRaises(ResultPacketError) as raised:

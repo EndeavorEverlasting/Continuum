@@ -1,4 +1,4 @@
-"""Deterministic completion gates over caller-reported evidence records."""
+"""Deterministic completion gates over reported evidence records."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ class EvidenceRecord:
 
 @dataclass(frozen=True)
 class CompletionGate:
-    """Structural decision over the evidence required by a task packet."""
+    """Conservative decision over the evidence required by a task packet."""
 
     status: str
     required: tuple[str, ...]
@@ -57,32 +57,111 @@ class CompletionGate:
         }
 
 
+def _normalize_nonempty_string(value: Any, *, code: str, message: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise CompletionGateError(code, message)
+    return value.strip()
+
+
 def parse_evidence_argument(value: str) -> EvidenceRecord:
     """Parse NAME=STATUS=REFERENCE without interpreting the reference."""
 
+    if not isinstance(value, str):
+        raise CompletionGateError("evidence.format", "Evidence arguments must be strings.")
     name, separator, remainder = value.partition("=")
     status, second_separator, reference = remainder.partition("=")
-    name = name.strip()
-    status = status.strip()
-    reference = reference.strip()
     if not separator or not second_separator:
         raise CompletionGateError(
             "evidence.format",
             "Evidence must use NAME=STATUS=REFERENCE format.",
         )
-    if not name:
-        raise CompletionGateError("evidence.name_empty", "Evidence names must not be empty.")
+    name = _normalize_nonempty_string(
+        name,
+        code="evidence.name_empty",
+        message="Evidence names must not be empty.",
+    )
+    status = _normalize_nonempty_string(
+        status,
+        code="evidence.status_invalid",
+        message="Evidence status must not be empty.",
+    )
+    reference = _normalize_nonempty_string(
+        reference,
+        code="evidence.reference_missing",
+        message=f"Evidence {name!r} must include a non-empty reference.",
+    )
     if status not in ALLOWED_EVIDENCE_STATUSES:
         allowed = ", ".join(sorted(ALLOWED_EVIDENCE_STATUSES))
         raise CompletionGateError(
             "evidence.status_invalid",
             f"Evidence {name!r} has unsupported status {status!r}. Allowed: {allowed}.",
         )
-    if not reference:
+    return EvidenceRecord(name=name, status=status, reference=reference)
+
+
+def _normalize_required_evidence(required_evidence: Iterable[str]) -> tuple[str, ...]:
+    if isinstance(required_evidence, (str, bytes)):
         raise CompletionGateError(
-            "evidence.reference_missing",
-            f"Evidence {name!r} must include a non-empty reference.",
+            "completion_gate.required_invalid",
+            "Required evidence must be an iterable of names, not a single string.",
         )
+    required: list[str] = []
+    try:
+        items = tuple(required_evidence)
+    except TypeError as exc:
+        raise CompletionGateError(
+            "completion_gate.required_invalid",
+            "Required evidence must be iterable.",
+        ) from exc
+    for item in items:
+        required.append(
+            _normalize_nonempty_string(
+                item,
+                code="completion_gate.required_invalid",
+                message="Required evidence names must be non-empty strings.",
+            )
+        )
+    normalized = tuple(sorted(required))
+    if not normalized:
+        raise CompletionGateError(
+            "completion_gate.required_missing",
+            "A completion gate requires at least one evidence name.",
+        )
+    if len(set(normalized)) != len(normalized):
+        raise CompletionGateError(
+            "completion_gate.required_duplicate",
+            "The required-evidence list contains duplicates.",
+        )
+    return normalized
+
+
+def _normalize_record(record: EvidenceRecord) -> EvidenceRecord:
+    if not isinstance(record, EvidenceRecord):
+        raise CompletionGateError(
+            "evidence.record_invalid",
+            "Evidence records must be EvidenceRecord instances.",
+        )
+    name = _normalize_nonempty_string(
+        record.name,
+        code="evidence.name_empty",
+        message="Evidence names must not be empty.",
+    )
+    status = _normalize_nonempty_string(
+        record.status,
+        code="evidence.status_invalid",
+        message=f"Evidence {name!r} must include a status.",
+    )
+    if status not in ALLOWED_EVIDENCE_STATUSES:
+        allowed = ", ".join(sorted(ALLOWED_EVIDENCE_STATUSES))
+        raise CompletionGateError(
+            "evidence.status_invalid",
+            f"Evidence {name!r} has unsupported status {status!r}. Allowed: {allowed}.",
+        )
+    reference = _normalize_nonempty_string(
+        record.reference,
+        code="evidence.reference_missing",
+        message=f"Evidence {name!r} must include a non-empty reference.",
+    )
     return EvidenceRecord(name=name, status=status, reference=reference)
 
 
@@ -92,22 +171,25 @@ def evaluate_completion_gate(
     *,
     applicable: bool,
 ) -> CompletionGate:
-    """Evaluate whether every required evidence record structurally passed."""
+    """Evaluate reported evidence without treating it as independent proof."""
 
-    required = tuple(sorted(item.strip() for item in required_evidence if item.strip()))
-    if not required:
+    required = _normalize_required_evidence(required_evidence)
+    if isinstance(evidence_records, (str, bytes)):
         raise CompletionGateError(
-            "completion_gate.required_missing",
-            "A completion gate requires at least one evidence name.",
+            "evidence.records_invalid",
+            "Evidence records must be an iterable of EvidenceRecord values.",
         )
-    if len(set(required)) != len(required):
+    try:
+        items = tuple(evidence_records)
+    except TypeError as exc:
         raise CompletionGateError(
-            "completion_gate.required_duplicate",
-            "The required-evidence list contains duplicates.",
-        )
+            "evidence.records_invalid",
+            "Evidence records must be iterable.",
+        ) from exc
 
     records: dict[str, EvidenceRecord] = {}
-    for record in evidence_records:
+    for raw_record in items:
+        record = _normalize_record(raw_record)
         if record.name in records:
             raise CompletionGateError(
                 "evidence.duplicate",
@@ -132,8 +214,12 @@ def evaluate_completion_gate(
         blocker_list = [f"missing evidence: {name}" for name in missing]
         blocker_list.extend(f"failed evidence: {name}" for name in failed)
         blocker_list.extend(f"skipped evidence: {name}" for name in skipped)
+        if blocker_list:
+            status = "blocked"
+        else:
+            status = "unverified"
+            blocker_list.append("independent evidence verification required")
         blockers = tuple(blocker_list)
-        status = "passed" if not blockers else "blocked"
 
     return CompletionGate(
         status=status,

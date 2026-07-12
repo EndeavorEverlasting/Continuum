@@ -11,7 +11,7 @@ from continuum.workflows import WorkflowError, decide_result_transition  # noqa:
 
 
 class WorkflowTests(unittest.TestCase):
-    def test_success_with_passed_gate_allows_completion(self) -> None:
+    def test_only_verified_passed_gate_allows_completion(self) -> None:
         transition = decide_result_transition(
             task_status="ready",
             outcome="succeeded",
@@ -21,11 +21,11 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual("allowed", transition.decision)
         self.assertFalse(transition.applied)
 
-    def test_success_with_blocked_gate_does_not_allow_completion(self) -> None:
+    def test_unverified_success_does_not_allow_completion(self) -> None:
         transition = decide_result_transition(
             task_status="ready",
             outcome="succeeded",
-            completion_gate_status="blocked",
+            completion_gate_status="unverified",
         )
         self.assertEqual("completed", transition.to_state)
         self.assertEqual("blocked", transition.decision)

@@ -16,7 +16,7 @@ from test_result_packets import TASK_PACKET  # noqa: E402
 
 
 class ResultCliTests(unittest.TestCase):
-    def test_cli_emits_ready_result_packet(self) -> None:
+    def test_cli_blocks_caller_reported_success(self) -> None:
         with TemporaryDirectory() as directory:
             task_path = Path(directory) / "task.json"
             task_path.write_text(json.dumps(TASK_PACKET), encoding="utf-8")
@@ -36,11 +36,11 @@ class ResultCliTests(unittest.TestCase):
                     ]
                 )
             payload = json.loads(output.getvalue())
-            self.assertEqual(0, exit_code)
-            self.assertEqual("ready", payload["status"])
-            self.assertEqual("completed", payload["transition"]["to"])
+            self.assertEqual(1, exit_code)
+            self.assertEqual("blocked", payload["status"])
+            self.assertEqual("unverified", payload["completion_gate"]["status"])
 
-    def test_cli_returns_nonzero_for_blocked_completion_gate(self) -> None:
+    def test_cli_returns_nonzero_for_missing_evidence(self) -> None:
         with TemporaryDirectory() as directory:
             task_path = Path(directory) / "task.json"
             task_path.write_text(json.dumps(TASK_PACKET), encoding="utf-8")
@@ -59,7 +59,6 @@ class ResultCliTests(unittest.TestCase):
                 )
             payload = json.loads(output.getvalue())
             self.assertEqual(1, exit_code)
-            self.assertEqual("blocked", payload["status"])
             self.assertEqual(["validation_results"], payload["completion_gate"]["missing"])
 
 

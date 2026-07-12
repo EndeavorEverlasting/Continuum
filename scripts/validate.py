@@ -97,21 +97,21 @@ def main() -> int:
 
     result_payload = result_packet.to_dict()
     if (
-        result_payload.get("status") != "ready"
+        result_payload.get("status") != "blocked"
         or result_payload.get("kind") != "continuum.result-packet"
-        or result_payload.get("completion_gate", {}).get("status") != "passed"
-        or result_payload.get("transition", {}).get("decision") != "allowed"
+        or result_payload.get("completion_gate", {}).get("status") != "unverified"
+        or result_payload.get("transition", {}).get("decision") != "blocked"
         or result_payload.get("transition", {}).get("to") != "completed"
         or result_payload.get("transition", {}).get("applied") is not False
     ):
-        print("Continuum compiled an invalid result-packet envelope.")
+        print("Continuum compiled an unsafe result-packet envelope.")
         return 1
 
     print(
         "Continuum compiled validation task packet "
         f"{task_packet.task_id} and result packet {result_packet.result_id}."
     )
-    print("Continuum permitted, but did not apply, the ready-to-completed transition.")
+    print("Continuum correctly blocked completion because evidence was not independently verified.")
     return 0
 
 
