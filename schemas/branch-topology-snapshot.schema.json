@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EndeavorEverlasting/Continuum/schemas/branch-topology-snapshot.schema.json",
+  "title": "Continuum branch topology snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "kind", "canonical_branch", "proposed_base", "stacking_exception", "open_pull_requests"],
+  "properties": {
+    "$schema": {"const": "schemas/branch-topology-snapshot.schema.json"},
+    "schema_version": {"const": 1},
+    "kind": {"const": "continuum.branch-topology-snapshot"},
+    "canonical_branch": {"$ref": "#/$defs/branch"},
+    "proposed_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "head_sha", "dirty"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "dirty": {"type": "boolean"}
+      }
+    },
+    "stacking_exception": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "reason"],
+      "properties": {
+        "allowed": {"type": "boolean"},
+        "reason": {"type": ["string", "null"]}
+      }
+    },
+    "open_pull_requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["number", "head", "base", "state", "mergeable", "checks"],
+        "properties": {
+          "number": {"type": "integer", "minimum": 1},
+          "head": {"type": "string", "minLength": 1},
+          "base": {"type": "string", "minLength": 1},
+          "state": {"const": "open"},
+          "mergeable": {"type": "boolean"},
+          "checks": {"enum": ["success", "failure", "pending", "unknown"]}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "head_sha"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}
+      }
+    }
+  }
+}
