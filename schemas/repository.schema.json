@@ -4,70 +4,40 @@
   "title": "Continuum repository contract",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "harness_version",
-    "repository",
-    "commands",
-    "boundaries",
-    "evidence"
-  ],
+  "required": ["schema_version", "harness_version", "repository", "branch_policy", "commands", "boundaries", "evidence"],
   "properties": {
-    "$schema": {
-      "type": "string"
-    },
-    "schema_version": {
-      "const": 1
-    },
-    "harness_version": {
-      "type": "string",
-      "minLength": 1
-    },
+    "$schema": {"type": "string"},
+    "schema_version": {"const": 1},
+    "harness_version": {"type": "string", "minLength": 1},
     "repository": {
       "type": "object",
       "additionalProperties": false,
       "required": ["name", "default_branch"],
       "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "default_branch": {
-          "type": "string",
-          "minLength": 1
-        }
+        "name": {"type": "string", "minLength": 1},
+        "default_branch": {"type": "string", "minLength": 1}
       }
     },
-    "commands": {
+    "branch_policy": {
       "type": "object",
-      "minProperties": 1,
-      "additionalProperties": {
-        "type": "string",
-        "minLength": 1
+      "additionalProperties": false,
+      "required": ["canonical_base", "stacked_pull_requests", "merge_green_predecessors_before_next_sprint", "require_clean_base", "require_current_canonical_base"],
+      "properties": {
+        "canonical_base": {"type": "string", "minLength": 1},
+        "stacked_pull_requests": {"enum": ["forbidden", "explicit_only", "allowed"]},
+        "merge_green_predecessors_before_next_sprint": {"type": "boolean"},
+        "require_clean_base": {"type": "boolean"},
+        "require_current_canonical_base": {"type": "boolean"}
       }
     },
+    "commands": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "minLength": 1}},
     "boundaries": {
       "type": "object",
       "additionalProperties": false,
       "required": ["protected_paths", "forbidden_operations"],
       "properties": {
-        "protected_paths": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "uniqueItems": true
-        },
-        "forbidden_operations": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "uniqueItems": true
-        }
+        "protected_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "forbidden_operations": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
       }
     },
     "evidence": {
@@ -75,15 +45,7 @@
       "additionalProperties": false,
       "required": ["required"],
       "properties": {
-        "required": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "uniqueItems": true
-        }
+        "required": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
       }
     }
   }
