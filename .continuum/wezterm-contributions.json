@@ -1,0 +1,84 @@
+{
+  "$schema": "../schemas/harness-contribution.schema.json",
+  "schema_version": 1,
+  "kind": "continuum.harness-contribution-manifest",
+  "source": {
+    "repository": "wezterm/wezterm",
+    "commit_sha": "fff02ca501c3b457f99b467a86061d2b150c51f2",
+    "authority_paths": [
+      "mux/src/domain.rs",
+      "wezterm-client/src/domain.rs",
+      "lua-api-crates/mux/src/domain.rs",
+      "docs/multiplexing.md"
+    ]
+  },
+  "contributions": [
+    {
+      "id": "domain-capability-state-separation",
+      "title": "Separate declared domain capabilities from observed lifecycle state",
+      "source_paths": [
+        "mux/src/domain.rs",
+        "lua-api-crates/mux/src/domain.rs"
+      ],
+      "classification": "portable_harness",
+      "maturity": "merged",
+      "target_layer": "continuum_harness",
+      "capabilities": [
+        "model attached and detached state independently from spawnable and detachable capabilities",
+        "keep stable domain identity separate from display labels",
+        "require explicit state observation before state-sensitive orchestration"
+      ],
+      "rationale": "Continuum already names execution domains but previously had no provider-neutral attached or detached state contract, so capability declarations could be mistaken for observed availability."
+    },
+    {
+      "id": "explicit-domain-action-decisions",
+      "title": "Evaluate attach detach and spawn as explicit domain actions",
+      "source_paths": [
+        "mux/src/domain.rs",
+        "lua-api-crates/mux/src/domain.rs"
+      ],
+      "classification": "portable_harness",
+      "maturity": "merged",
+      "target_layer": "continuum_harness",
+      "capabilities": [
+        "gate attach detach and spawn against declared capabilities",
+        "treat repeated attach or detach requests as explicit idempotent decisions",
+        "emit a decision without applying the action"
+      ],
+      "rationale": "A non-mutating decision layer lets Continuum coordinate future adapters without becoming an unrestricted terminal or process controller."
+    },
+    {
+      "id": "startup-selection-separation",
+      "title": "Separate client startup selection from domain service auto-start",
+      "source_paths": [
+        "docs/multiplexing.md",
+        "wezterm-client/src/domain.rs"
+      ],
+      "classification": "portable_harness",
+      "maturity": "merged",
+      "target_layer": "continuum_harness",
+      "capabilities": [
+        "avoid interpreting service auto-start as client attachment",
+        "require an explicit attach decision before spawning into a detached domain",
+        "keep operator startup preference outside observed domain state"
+      ],
+      "rationale": "WezTerm recommends explicit startup connection selection rather than treating automatic connection as an intrinsic domain property; Continuum now preserves the same boundary."
+    },
+    {
+      "id": "remote-local-identity-reconciliation",
+      "title": "Reconcile remote and local resource identities with stale-map expiry",
+      "source_paths": [
+        "wezterm-client/src/domain.rs"
+      ],
+      "classification": "portable_harness",
+      "maturity": "merged",
+      "target_layer": "reference_only",
+      "capabilities": [
+        "map remote resource identifiers to local handles",
+        "expire stale mappings when local resources disappear",
+        "avoid treating remote and local identifiers as interchangeable"
+      ],
+      "rationale": "This is actionable for future multi-client Continuum work, but no remote workspace resource model exists yet, so implementation is intentionally deferred."
+    }
+  ]
+}
