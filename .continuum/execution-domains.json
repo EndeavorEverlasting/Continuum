@@ -1,0 +1,13 @@
+{
+  "$schema": "../schemas/execution-domains.schema.json",
+  "schema_version": 1,
+  "default_domain": "local-inspection",
+  "domains": {
+    "local-inspection": {
+      "transport": "local",
+      "lifecycle": "external",
+      "auto_start": false,
+      "capabilities": ["inspect"]
+    }
+  }
+}
