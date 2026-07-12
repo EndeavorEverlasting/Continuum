@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Validate repository contracts and task packet
+      - name: Validate repository contracts and packets
         run: python scripts/validate.py
 
       - name: Run unit tests
@@ -37,11 +37,34 @@ jobs:
       - name: Exercise installed doctor command
         run: continuum doctor . --json
 
-      - name: Exercise installed task command
-        run: >-
-          continuum task .
-          --domain local-inspection
-          --owned "Continuum repository validation"
-          --forbidden "network access"
-          --forbidden "cross-repository mutation"
-          --json
+      - name: Prove caller-reported success cannot complete
+        shell: bash
+        run: |
+          continuum task . \
+            --domain local-inspection \
+            --owned "Continuum repository validation" \
+            --forbidden "network access" \
+            --forbidden "cross-repository mutation" \
+            --json > /tmp/continuum-task.json
+          set +e
+          continuum result /tmp/continuum-task.json \
+            --outcome succeeded \
+            --evidence git_status=passed=git-status-short \
+            --evidence changed_files=passed=git-diff-stat \
+            --evidence validation_results=passed=ci-validation \
+            --evidence commit_sha=passed=${GITHUB_SHA} \
+            --domain-availability unverified \
+            --json > /tmp/continuum-result.json
+          result_exit=$?
+          set -e
+          test "$result_exit" -eq 1
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("/tmp/continuum-result.json").read_text())
+          assert payload["status"] == "blocked"
+          assert payload["completion_gate"]["status"] == "unverified"
+          assert payload["transition"]["decision"] == "blocked"
+          assert payload["transition"]["applied"] is False
+          PY

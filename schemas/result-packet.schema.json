@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EndeavorEverlasting/Continuum/schemas/result-packet.schema.json",
+  "title": "Continuum result packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "kind",
+    "result_id",
+    "task_id",
+    "status",
+    "outcome",
+    "repository",
+    "evidence",
+    "completion_gate",
+    "domain_observation",
+    "transition",
+    "blocker"
+  ],
+  "properties": {
+    "$schema": {"const": "schemas/result-packet.schema.json"},
+    "schema_version": {"const": 1},
+    "kind": {"const": "continuum.result-packet"},
+    "result_id": {"type": "string", "pattern": "^result-[0-9a-f]{16}$"},
+    "task_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["ready", "blocked"]},
+    "outcome": {"enum": ["succeeded", "blocked", "failed"]},
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "root", "head_sha"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "root": {"type": "string", "minLength": 1},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "status", "reference", "source"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "status": {"enum": ["passed", "failed", "skipped"]},
+          "reference": {"type": "string", "minLength": 1},
+          "source": {"const": "caller-reported"}
+        }
+      }
+    },
+    "completion_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "required", "passed", "failed", "skipped", "missing", "blockers"],
+      "properties": {
+        "status": {"enum": ["passed", "unverified", "blocked", "not_applicable"]},
+        "required": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "passed": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "failed": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "skipped": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "missing": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "blockers": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "domain_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "availability",
+        "observed_capabilities",
+        "evidence_reference",
+        "source"
+      ],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "availability": {"const": "unverified"},
+        "observed_capabilities": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "evidence_reference": {"type": "null"},
+        "source": {"const": "caller-reported"}
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "decision", "applied"],
+      "properties": {
+        "from": {"const": "ready"},
+        "to": {"enum": ["completed", "blocked"]},
+        "decision": {"enum": ["allowed", "blocked"]},
+        "applied": {"const": false}
+      }
+    },
+    "blocker": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message"],
+          "properties": {
+            "code": {"type": "string", "minLength": 1},
+            "message": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    }
+  }
+}
