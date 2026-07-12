@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EndeavorEverlasting/Continuum/schemas/execution-domains.schema.json",
+  "title": "Continuum execution-domain registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "default_domain", "domains"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": 1},
+    "default_domain": {"type": "string", "minLength": 1},
+    "domains": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/domain"}
+    }
+  },
+  "$defs": {
+    "domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transport", "lifecycle", "auto_start", "capabilities"],
+      "properties": {
+        "transport": {
+          "enum": ["local", "unix", "ssh", "tls", "wsl", "serial", "custom"]
+        },
+        "lifecycle": {"enum": ["external", "managed"]},
+        "auto_start": {"type": "boolean"},
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["inspect", "spawn", "attach", "detach", "read", "write"]
+          }
+        }
+      }
+    }
+  }
+}
