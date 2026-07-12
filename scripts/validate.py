@@ -123,6 +123,14 @@ def main() -> int:
         print("Continuum did not compile independent GitHub Actions completion proof.")
         return 1
 
+    import jsonschema
+    proof_schema = json.loads((ROOT / "schemas" / "github-actions-proof.schema.json").read_text(encoding="utf-8"))
+    try:
+        jsonschema.validate(ci_proof.to_dict(), proof_schema)
+    except jsonschema.ValidationError as exc:
+        print(f"Continuum compiled a completion proof that violates its schema: {exc.message}")
+        return 1
+
     print(f"Continuum compiled validation task packet {task_packet.task_id} and result packet {result_packet.result_id}.")
     print(f"Continuum compiled independent GitHub Actions proof {ci_proof.proof_id}.")
     print("Continuum correctly blocked completion because caller-reported evidence was not independently verified.")

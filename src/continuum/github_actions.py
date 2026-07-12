@@ -8,7 +8,7 @@ from typing import Any, Iterable, Mapping
 CONTRACT_RELATIVE_PATH = Path('.continuum/repository.json')
 DEFAULT_GITHUB_API_URL = 'https://api.github.com'
 PROOF_SCHEMA_PATH = 'schemas/github-actions-proof.schema.json'
-_SHA = re.compile(r'^[0-9a-f]{40,64}$')
+_SHA = re.compile(r'^[0-9a-f]{40}$|^[0-9a-f]{64}$')
 _SLUG = re.compile(r'^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')
 RETRYABLE_BLOCKERS = frozenset({'github_actions.run_missing','github_actions.run_pending'})
 

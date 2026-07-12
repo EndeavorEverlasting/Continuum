@@ -112,6 +112,19 @@ class GitHubActionsSecurityTests(unittest.TestCase):
         self.assertEqual(2, proof.run.run_attempt)
         self.assertEqual("github_actions.run_failed", proof.blocker["code"])
 
+    def test_sha_rejects_intermediate_length_hex_strings(self) -> None:
+        intermediate = "a" * 50
+        with self.assertRaises(GitHubActionsError) as raised:
+            evaluate_github_actions_runs(POLICY, intermediate, [], source="github-api")
+        self.assertEqual("github_actions.commit_invalid", raised.exception.code)
+
+    def test_fetch_rejects_non_http_url_scheme(self) -> None:
+        from continuum.github_actions_api import _fetch
+
+        with self.assertRaises(GitHubActionsError) as raised:
+            _fetch("ftp://example.com/data", {}, 5.0)
+        self.assertEqual("github_actions.api_url_invalid", raised.exception.code)
+
 
 if __name__ == "__main__":
     unittest.main()

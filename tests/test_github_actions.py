@@ -133,13 +133,14 @@ class GitHubActionsProofTests(unittest.TestCase):
             POLICY,
             SHA,
             [
-                run_document(run_id=100, attempt=1, conclusion="success"),
+                run_document(run_id=102, attempt=1, conclusion="success"),
                 run_document(run_id=102, attempt=2, conclusion="failure"),
             ],
             source="github-api",
         )
         self.assertFalse(proof.passed)
         self.assertEqual(102, proof.run.run_id)
+        self.assertEqual(2, proof.run.run_attempt)
         self.assertEqual("github_actions.run_failed", proof.blocker["code"])
 
     def test_api_fetch_uses_read_only_filters_and_does_not_render_token(self) -> None:

@@ -80,5 +80,15 @@
         }
       ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "passed"}}},
+      "then": {"properties": {"blocker": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "blocked"}}},
+      "then": {"not": {"properties": {"blocker": {"type": "null"}}}}
+    }
+  ]
 }

@@ -34,7 +34,7 @@ VALID_CONTRACT = {
     },
     "commands": {"test": "python -m unittest"},
     "boundaries": {"protected_paths": [], "forbidden_operations": ["force_push"]},
-    "evidence": {"required": ["validation_results"]},
+    "evidence": {"required": ["validation_results", "github_actions"]},
 }
 
 
@@ -114,6 +114,26 @@ class ContractInspectionTests(unittest.TestCase):
             failed = {check.check_id for check in inspect_repository(root).checks if not check.passed}
             self.assertIn("completion_proof.event", failed)
             self.assertIn("completion_proof.required_conclusion", failed)
+
+    def test_evidence_requires_github_actions_for_github_actions_provider(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            document = json.loads(json.dumps(VALID_CONTRACT))
+            document["evidence"]["required"] = ["validation_results"]
+            write_contract(root, document)
+            failed = {check.check_id for check in inspect_repository(root).checks if not check.passed}
+            self.assertIn("evidence.required.github_actions", failed)
+
+    def test_evidence_check_skipped_for_non_github_provider(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            document = json.loads(json.dumps(VALID_CONTRACT))
+            document["completion_proof"]["provider"] = "other_provider"
+            document["evidence"]["required"] = ["validation_results"]
+            write_contract(root, document)
+            report = inspect_repository(root)
+            failed = {check.check_id for check in report.checks if not check.passed}
+            self.assertNotIn("evidence.required.github_actions", failed)
 
     def test_cli_emits_json_and_success_exit_code(self):
         with TemporaryDirectory() as directory:

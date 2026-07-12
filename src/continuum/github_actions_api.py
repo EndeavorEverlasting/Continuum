@@ -11,6 +11,9 @@ DEFAULT_GITHUB_API_URL='https://api.github.com'
 JsonFetcher=Callable[[str,Mapping[str,str],float],Mapping[str,Any]]
 
 def _fetch(url,headers,timeout):
+    parsed=urlsplit(url)
+    if parsed.scheme not in ('https','http'):
+        raise GitHubActionsError('github_actions.api_url_invalid',f'GitHub Actions API URL must use https or http scheme, not {parsed.scheme!r}.')
     try:
         with urlopen(Request(url,headers=dict(headers),method='GET'),timeout=timeout) as response: raw=response.read()
     except HTTPError as exc: raise GitHubActionsError('github_actions.http_error',f'GitHub Actions API returned HTTP {exc.code}.') from exc
