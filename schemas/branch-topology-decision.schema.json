@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EndeavorEverlasting/Continuum/schemas/branch-topology-decision.schema.json",
+  "title": "Continuum branch topology decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "kind", "status", "decision", "allowed", "canonical_base", "proposed_base", "predecessor_pr", "stacking_exception_used", "reason", "next_action"],
+  "properties": {
+    "$schema": {"const": "schemas/branch-topology-decision.schema.json"},
+    "schema_version": {"const": 1},
+    "kind": {"const": "continuum.branch-topology-decision"},
+    "status": {"enum": ["ready", "blocked"]},
+    "decision": {"enum": ["clean_base_required", "refresh_canonical_base", "create_branch_from_canonical", "merge_predecessor_first", "stacking_forbidden", "stacking_exception_required", "allow_explicit_stack", "allow_policy_stack"]},
+    "allowed": {"type": "boolean"},
+    "canonical_base": {"$ref": "#/$defs/branch"},
+    "proposed_base": {"$ref": "#/$defs/branch"},
+    "predecessor_pr": {"type": ["integer", "null"], "minimum": 1},
+    "stacking_exception_used": {"type": "boolean"},
+    "reason": {"type": "string", "minLength": 1},
+    "next_action": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "head_sha"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}
+      }
+    }
+  }
+}
