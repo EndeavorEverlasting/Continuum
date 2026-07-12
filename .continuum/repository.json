@@ -10,7 +10,7 @@
     "validate": "python scripts/validate.py",
     "test": "python -m unittest discover -s tests -v",
     "compile": "python -m compileall -q src tests scripts",
-    "task": "continuum task . --owned repository-control-plane --forbidden cross-repository-mutation --json"
+    "task": "continuum task . --domain local-inspection --owned repository-control-plane --forbidden cross-repository-mutation --json"
   },
   "boundaries": {
     "protected_paths": [
