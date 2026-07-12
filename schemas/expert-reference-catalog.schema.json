@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EndeavorEverlasting/Continuum/schemas/expert-reference-catalog.schema.json",
+  "title": "Continuum expert reference catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "kind",
+    "snapshot_date",
+    "coordination_home",
+    "tracking_policy",
+    "references"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": 1},
+    "kind": {"const": "continuum.expert-reference-catalog"},
+    "snapshot_date": {"type": "string", "format": "date"},
+    "coordination_home": {"const": "EndeavorEverlasting/Continuum"},
+    "tracking_policy": {"type": "string", "minLength": 1},
+    "references": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/reference"}
+    }
+  },
+  "$defs": {
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "authority_url",
+        "category",
+        "dispositions",
+        "tracking",
+        "adoption_status",
+        "authority",
+        "continuum_role",
+        "adoption_boundary",
+        "observed_ref",
+        "risk",
+        "next_experiment"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"
+        },
+        "name": {"type": "string", "minLength": 1},
+        "authority_url": {"type": "string", "format": "uri"},
+        "category": {
+          "enum": [
+            "internal_peer",
+            "operator_environment",
+            "agent_tooling",
+            "interface_standard",
+            "validation_gate",
+            "orchestrator",
+            "review_surface",
+            "voice_input"
+          ]
+        },
+        "dispositions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "clone",
+              "use",
+              "integrate",
+              "emulate",
+              "reference_only",
+              "evaluate",
+              "defer"
+            ]
+          }
+        },
+        "tracking": {
+          "enum": [
+            "pinned_snapshot",
+            "follow_latest_before_adoption",
+            "local_install",
+            "website_spec"
+          ]
+        },
+        "adoption_status": {
+          "enum": ["active", "candidate", "reference_only", "deferred"]
+        },
+        "authority": {"type": "string", "minLength": 1},
+        "continuum_role": {"type": "string", "minLength": 1},
+        "adoption_boundary": {"type": "string", "minLength": 1},
+        "observed_ref": {"type": "string", "minLength": 1},
+        "source_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "risk": {"type": "string", "minLength": 1},
+        "next_experiment": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
