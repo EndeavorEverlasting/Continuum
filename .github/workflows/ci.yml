@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, sprint/branch-topology-governance]
+    branches: [main]
   pull_request:
 
 permissions:
