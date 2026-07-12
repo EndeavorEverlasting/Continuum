@@ -3,4 +3,4 @@
 from .contracts import InspectionReport, inspect_repository
 
 __all__ = ["InspectionReport", "inspect_repository"]
-__version__ = "0.3.0"
+__version__ = "0.4.0"
