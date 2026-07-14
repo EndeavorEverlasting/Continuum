@@ -1,0 +1,146 @@
+{
+  "schema": "ContinuumContributionInventory.v1",
+  "donor": "EndeavorEverlasting/BlacksmithGuild",
+  "pins": {
+    "feat/continuum-harness-interoperability": "6243ce524459a6c70e46e24508a1731386e34db8",
+    "origin/agent-feedback-stop-hook": "c4a6c93e90bab382f3bbc58bf2d0b21623e59745",
+    "main": "b1975f523dd7fe088e17e013127b0f0e73d2be34"
+  },
+  "capabilities": [
+    {
+      "id": "event-journal",
+      "disposition": "continuum_portable_now",
+      "commit": "6243ce524459a6c70e46e24508a1731386e34db8",
+      "paths": [
+        "scripts/tbg/Read-TbgJournal.ps1",
+        "scripts/tbg/Write-TbgJournalEvent.ps1",
+        "scripts/tbg/Test-TbgJournal.ps1"
+      ],
+      "summary": "State event store providing append-only operations and read iteration over transaction histories."
+    },
+    {
+      "id": "deterministic-reducers",
+      "disposition": "continuum_portable_now",
+      "commit": "6243ce524459a6c70e46e24508a1731386e34db8",
+      "paths": [
+        "scripts/tbg/Invoke-TbgReducer.ps1",
+        "scripts/tbg/Merge-TbgStateObjects.ps1",
+        "scripts/tbg/New-TbgStateEnvelope.ps1",
+        "scripts/tbg/New-TbgStateObject.ps1",
+        "scripts/tbg/Resolve-TbgStateView.ps1",
+        "scripts/tbg/Test-TbgStateEnvelope.ps1"
+      ],
+      "summary": "Pure projection functions reducing transaction streams into state views."
+    },
+    {
+      "id": "work-item-model",
+      "disposition": "continuum_portable_now",
+      "commit": "6243ce524459a6c70e46e24508a1731386e34db8",
+      "paths": [
+        "scripts/tbg/Reduce-TbgWorkItem.ps1",
+        ".tbg/workflows/state-envelope.contract.json"
+      ],
+      "summary": "Task definitions, target states, and outcomes."
+    },
+    {
+      "id": "constraints-and-dispositions",
+      "disposition": "continuum_portable_now",
+      "commit": "6243ce524459a6c70e46e24508a1731386e34db8",
+      "paths": [
+        "scripts/tbg/Reduce-TbgConstraint.ps1",
+        "scripts/tbg/Reduce-TbgDisposition.ps1"
+      ],
+      "summary": "Boundary constraints and final task disposition evaluations."
+    },
+    {
+      "id": "capability-gaps",
+      "disposition": "continuum_portable_now",
+      "commit": "6243ce524459a6c70e46e24508a1731386e34db8",
+      "paths": [
+        "scripts/tbg/Reduce-TbgCapabilityGap.ps1"
+      ],
+      "summary": "Tracking missing capabilities or validation failures."
+    },
+    {
+      "id": "action-lifecycle",
+      "disposition": "continuum_portable_now",
+      "commit": "6243ce524459a6c70e46e24508a1731386e34db8",
+      "paths": [
+        "scripts/tbg/Resolve-TbgAction.ps1"
+      ],
+      "summary": "Task execution phases, state transitions, and closeout."
+    },
+    {
+      "id": "risk-classification",
+      "disposition": "continuum_portable_now",
+      "commit": "6243ce524459a6c70e46e24508a1731386e34db8",
+      "paths": [
+        ".tbg/state/provider-catalog.json"
+      ],
+      "summary": "Classification criteria for capabilities (e.g. static, local_read_write, runtime_write)."
+    },
+    {
+      "id": "provider-catalog",
+      "disposition": "continuum_portable_now",
+      "commit": "6243ce524459a6c70e46e24508a1731386e34db8",
+      "paths": [
+        ".tbg/state/provider-catalog.json",
+        "scripts/tbg/Build-TbgProviderCatalog.ps1",
+        "scripts/tbg/Test-TbgProviderCatalog.ps1"
+      ],
+      "summary": "Unified index of capability providers, input/output schemas, and validators."
+    },
+    {
+      "id": "use-case-and-skill-routing",
+      "disposition": "continuum_after_runtime_adapter",
+      "commit": "6243ce524459a6c70e46e24508a1731386e34db8",
+      "paths": [
+        "scripts/tbg/Test-TbgSkillRouting.ps1",
+        ".tbg/workflows/agent-skill-router.contract.json"
+      ],
+      "summary": "Dynamic routing of target sprints to skills."
+    },
+    {
+      "id": "artifact-engine",
+      "disposition": "continuum_after_runtime_adapter",
+      "commit": "6243ce524459a6c70e46e24508a1731386e34db8",
+      "paths": [
+        "scripts/tbg/Invoke-TbgArtifactEngine.ps1",
+        "scripts/tbg/Test-TbgArtifactEngine.ps1",
+        ".tbg/workflows/local-artifact-engine.contract.json"
+      ],
+      "summary": "Durable local event persistence and parser invocation."
+    },
+    {
+      "id": "watcher-lifecycle",
+      "disposition": "continuum_after_runtime_adapter",
+      "commit": "6243ce524459a6c70e46e24508a1731386e34db8",
+      "paths": [
+        "scripts/tbg/Test-TbgArtifactWatcher.ps1"
+      ],
+      "summary": "Background file change detection and watcher execution loop."
+    },
+    {
+      "id": "agent-feedback-harness",
+      "disposition": "agent_switchboard_candidate",
+      "commit": "c4a6c93e90bab382f3bbc58bf2d0b21623e59745",
+      "paths": [
+        "docs/handoff/agent-feedback-harness.md",
+        "docs/handoff/agent-feedback-schema.md",
+        "scripts/verify-agent-feedback-harness-contract.ps1",
+        "scripts/write-agent-feedback-summary.ps1"
+      ],
+      "summary": "Standardized repo-state verification, allowed/forbidden claims, and next-sprint instructions."
+    },
+    {
+      "id": "runtime-proof-boundaries",
+      "disposition": "domain_specific_retain",
+      "commit": "c4a6c93e90bab382f3bbc58bf2d0b21623e59745",
+      "paths": [
+        "scripts/tbg/Test-TbgRuntimeGuardrail.ps1",
+        "docs/handoff/agentic-review-bottleneck-doctrine.md"
+      ],
+      "summary": "Strict local and game-compatibility guardrails."
+    }
+  ]
+}
