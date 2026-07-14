@@ -4,7 +4,7 @@
   "title": "Continuum repository contract",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "harness_version", "repository", "branch_policy", "commands", "boundaries", "evidence"],
+  "required": ["schema_version", "harness_version", "repository", "branch_policy", "completion_proof", "commands", "boundaries", "evidence"],
   "properties": {
     "$schema": {"type": "string"},
     "schema_version": {"const": 1},
@@ -28,6 +28,18 @@
         "merge_green_predecessors_before_next_sprint": {"type": "boolean"},
         "require_clean_base": {"type": "boolean"},
         "require_current_canonical_base": {"type": "boolean"}
+      }
+    },
+    "completion_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "repository", "workflow", "event", "required_conclusion"],
+      "properties": {
+        "provider": {"const": "github_actions"},
+        "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "workflow": {"type": "string", "minLength": 1},
+        "event": {"const": "push"},
+        "required_conclusion": {"const": "success"}
       }
     },
     "commands": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "minLength": 1}},

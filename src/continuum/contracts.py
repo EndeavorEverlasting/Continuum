@@ -1,207 +1,143 @@
-"""Repository-contract inspection for Continuum's executable loop."""
-
+"""Read-only repository contract inspection."""
 from __future__ import annotations
-
 from dataclasses import dataclass
-import json
+import json, re
 from pathlib import Path
 from typing import Any
 
-CONTRACT_RELATIVE_PATH = Path(".continuum/repository.json")
+CONTRACT_RELATIVE_PATH = Path('.continuum/repository.json')
 SUPPORTED_SCHEMA_VERSION = 1
-BRANCH_STACKING_POLICIES = frozenset({"forbidden", "explicit_only", "allowed"})
+STACKING = {'forbidden', 'explicit_only', 'allowed'}
+SLUG = re.compile(r'^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')
 
 
 @dataclass(frozen=True)
 class CheckResult:
-    """One deterministic contract check."""
-
     check_id: str
     passed: bool
     message: str
 
-    def to_dict(self) -> dict[str, Any]:
-        return {"id": self.check_id, "passed": self.passed, "message": self.message}
+    def to_dict(self):
+        return {'id': self.check_id, 'passed': self.passed, 'message': self.message}
 
 
 @dataclass(frozen=True)
 class InspectionReport:
-    """Evidence produced by inspecting one repository contract."""
-
     root: Path
     contract_path: Path
     checks: tuple[CheckResult, ...]
 
     @property
-    def ok(self) -> bool:
-        return bool(self.checks) and all(check.passed for check in self.checks)
+    def ok(self):
+        return bool(self.checks) and all(c.passed for c in self.checks)
 
-    def to_dict(self) -> dict[str, Any]:
-        passed = sum(check.passed for check in self.checks)
-        failed = len(self.checks) - passed
+    def to_dict(self):
+        passed = sum(c.passed for c in self.checks)
         return {
-            "schema_version": 1,
-            "command": "doctor",
-            "repository_root": str(self.root),
-            "contract_path": str(self.contract_path),
-            "status": "ready" if self.ok else "blocked",
-            "summary": {"total": len(self.checks), "passed": passed, "failed": failed},
-            "checks": [check.to_dict() for check in self.checks],
+            'schema_version': 1,
+            'command': 'doctor',
+            'repository_root': str(self.root),
+            'contract_path': str(self.contract_path),
+            'status': 'ready' if self.ok else 'blocked',
+            'summary': {
+                'total': len(self.checks),
+                'passed': passed,
+                'failed': len(self.checks) - passed,
+            },
+            'checks': [c.to_dict() for c in self.checks],
         }
 
-    def render_english(self) -> str:
-        passed = sum(check.passed for check in self.checks)
-        failed = len(self.checks) - passed
-        status = "ready" if self.ok else "blocked"
+    def render_english(self):
+        passed = sum(c.passed for c in self.checks)
+        status = 'ready' if self.ok else 'blocked'
         lines = [
-            f"Continuum inspected the repository at {self.root}.",
-            f"Continuum evaluated the contract at {self.contract_path}.",
-            f"Continuum completed {len(self.checks)} checks: {passed} passed and {failed} failed.",
-            f"Continuum classified the repository as {status}.",
+            f'Continuum inspected the repository at {self.root}.',
+            f'Continuum evaluated the contract at {self.contract_path}.',
+            f'Continuum completed {len(self.checks)} checks: {passed} passed and {len(self.checks) - passed} failed.',
+            f'Continuum classified the repository as {status}.',
         ]
-        for check in self.checks:
-            label = "PASS" if check.passed else "FAIL"
-            lines.append(f"{label} [{check.check_id}]: {check.message}")
-        return "\n".join(lines)
+        lines += [
+            f"{'PASS' if c.passed else 'FAIL'} [{c.check_id}]: {c.message}"
+            for c in self.checks
+        ]
+        return '\n'.join(lines)
 
 
-def _nonempty_string(value: Any) -> bool:
-    return isinstance(value, str) and bool(value.strip())
+def _text(v):
+    return isinstance(v, str) and bool(v.strip())
 
 
-def _string_list(value: Any, *, allow_empty: bool = True) -> bool:
-    return isinstance(value, list) and (allow_empty or bool(value)) and all(
-        _nonempty_string(item) for item in value
-    )
+def _list(v, required=False):
+    return isinstance(v, list) and (not required or bool(v)) and all(_text(x) for x in v)
 
 
-def _mapping_of_strings(value: Any) -> bool:
-    return isinstance(value, dict) and bool(value) and all(
-        _nonempty_string(key) and _nonempty_string(item) for key, item in value.items()
-    )
+def _map(v):
+    return isinstance(v, dict) and bool(v) and all(_text(k) and _text(x) for k, x in v.items())
+
+
+def _check(out, i, ok, good, bad):
+    out.append(CheckResult(i, bool(ok), good if ok else bad))
 
 
 def inspect_repository(root: Path) -> InspectionReport:
-    """Inspect a repository without modifying it or invoking network services."""
-
-    resolved_root = root.expanduser().resolve()
-    contract_path = resolved_root / CONTRACT_RELATIVE_PATH
-    checks: list[CheckResult] = []
-
-    if not contract_path.is_file():
-        checks.append(CheckResult("contract.exists", False, "The repository contract does not exist."))
-        return InspectionReport(resolved_root, contract_path, tuple(checks))
-    checks.append(CheckResult("contract.exists", True, "The repository contract exists."))
-
+    root = root.expanduser().resolve()
+    path = root / CONTRACT_RELATIVE_PATH
+    out = []
+    if not path.is_file():
+        _check(out, 'contract.exists', False, 'contract exists', 'The repository contract does not exist.')
+        return InspectionReport(root, path, tuple(out))
+    _check(out, 'contract.exists', True, 'The repository contract exists.', '')
     try:
-        document = json.loads(contract_path.read_text(encoding="utf-8"))
+        doc = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        checks.append(CheckResult("contract.parse", False, f"The repository contract could not be parsed: {exc}."))
-        return InspectionReport(resolved_root, contract_path, tuple(checks))
-
-    checks.append(CheckResult(
-        "contract.parse",
-        isinstance(document, dict),
-        "The repository contract is a JSON object." if isinstance(document, dict) else "The repository contract must be a JSON object.",
-    ))
-    if not isinstance(document, dict):
-        return InspectionReport(resolved_root, contract_path, tuple(checks))
-
-    schema_version = document.get("schema_version")
-    checks.append(CheckResult(
-        "contract.schema_version",
-        schema_version == SUPPORTED_SCHEMA_VERSION,
-        f"The schema version is {SUPPORTED_SCHEMA_VERSION}." if schema_version == SUPPORTED_SCHEMA_VERSION else f"The schema version must be {SUPPORTED_SCHEMA_VERSION}, but it is {schema_version!r}.",
-    ))
-    harness_version = document.get("harness_version")
-    checks.append(CheckResult(
-        "contract.harness_version",
-        _nonempty_string(harness_version),
-        "The harness version is declared." if _nonempty_string(harness_version) else "The harness version must be a non-empty string.",
-    ))
-
-    repository = document.get("repository")
-    repository_ok = isinstance(repository, dict)
-    checks.append(CheckResult(
-        "repository.object", repository_ok,
-        "The repository section is a JSON object." if repository_ok else "The repository section must be a JSON object.",
-    ))
-    repository = repository if repository_ok else {}
-    name = repository.get("name")
-    checks.append(CheckResult(
-        "repository.name", _nonempty_string(name),
-        "The repository name is declared." if _nonempty_string(name) else "The repository name must be a non-empty string.",
-    ))
-    default_branch = repository.get("default_branch")
-    checks.append(CheckResult(
-        "repository.default_branch", _nonempty_string(default_branch),
-        "The default branch is declared." if _nonempty_string(default_branch) else "The default branch must be a non-empty string.",
-    ))
-
-    branch_policy = document.get("branch_policy")
-    branch_policy_ok = isinstance(branch_policy, dict)
-    checks.append(CheckResult(
-        "branch_policy.object", branch_policy_ok,
-        "The branch-policy section is a JSON object." if branch_policy_ok else "The branch-policy section must be a JSON object.",
-    ))
-    branch_policy = branch_policy if branch_policy_ok else {}
-    canonical_base = branch_policy.get("canonical_base")
-    canonical_ok = _nonempty_string(canonical_base) and canonical_base == default_branch
-    checks.append(CheckResult(
-        "branch_policy.canonical_base", canonical_ok,
-        "The canonical base matches the default branch." if canonical_ok else "The canonical base must be a non-empty string matching repository.default_branch.",
-    ))
-    stacking = branch_policy.get("stacked_pull_requests")
-    stacking_ok = stacking in BRANCH_STACKING_POLICIES
-    checks.append(CheckResult(
-        "branch_policy.stacked_pull_requests", stacking_ok,
-        "The stacked pull-request policy is declared." if stacking_ok else "The stacked pull-request policy must be forbidden, explicit_only, or allowed.",
-    ))
-    for key, label in (
-        ("merge_green_predecessors_before_next_sprint", "merge-green-predecessors"),
-        ("require_clean_base", "require-clean-base"),
-        ("require_current_canonical_base", "require-current-canonical-base"),
-    ):
-        value = branch_policy.get(key)
-        checks.append(CheckResult(
-            f"branch_policy.{key}", isinstance(value, bool),
-            f"The {label} policy is boolean." if isinstance(value, bool) else f"The {label} policy must be boolean.",
-        ))
-
-    commands = document.get("commands")
-    checks.append(CheckResult(
-        "commands.mapping", _mapping_of_strings(commands),
-        "The command map contains executable command strings." if _mapping_of_strings(commands) else "The command map must contain at least one named command string.",
-    ))
-
-    boundaries = document.get("boundaries")
-    boundaries_ok = isinstance(boundaries, dict)
-    checks.append(CheckResult(
-        "boundaries.object", boundaries_ok,
-        "The boundaries section is a JSON object." if boundaries_ok else "The boundaries section must be a JSON object.",
-    ))
-    boundaries = boundaries if boundaries_ok else {}
-    protected_paths = boundaries.get("protected_paths")
-    checks.append(CheckResult(
-        "boundaries.protected_paths", _string_list(protected_paths),
-        "The protected-path list is valid." if _string_list(protected_paths) else "The protected-path list must contain only non-empty strings.",
-    ))
-    forbidden_operations = boundaries.get("forbidden_operations")
-    checks.append(CheckResult(
-        "boundaries.forbidden_operations", _string_list(forbidden_operations, allow_empty=False),
-        "The forbidden-operation list contains explicit safety boundaries." if _string_list(forbidden_operations, allow_empty=False) else "The forbidden-operation list must contain at least one non-empty string.",
-    ))
-
-    evidence = document.get("evidence")
-    evidence_ok = isinstance(evidence, dict)
-    checks.append(CheckResult(
-        "evidence.object", evidence_ok,
-        "The evidence section is a JSON object." if evidence_ok else "The evidence section must be a JSON object.",
-    ))
-    evidence = evidence if evidence_ok else {}
-    required_evidence = evidence.get("required")
-    checks.append(CheckResult(
-        "evidence.required", _string_list(required_evidence, allow_empty=False),
-        "The required-evidence list contains explicit proof artifacts." if _string_list(required_evidence, allow_empty=False) else "The required-evidence list must contain at least one non-empty string.",
-    ))
-    return InspectionReport(resolved_root, contract_path, tuple(checks))
+        _check(out, 'contract.parse', False, '', f'The repository contract could not be parsed: {exc}.')
+        return InspectionReport(root, path, tuple(out))
+    obj = isinstance(doc, dict)
+    _check(out, 'contract.parse', obj, 'The repository contract is a JSON object.', 'The repository contract must be a JSON object.')
+    if not obj:
+        return InspectionReport(root, path, tuple(out))
+    _check(out, 'contract.schema_version', doc.get('schema_version') == 1, 'The schema version is 1.', 'The schema version must be 1.')
+    _check(out, 'contract.harness_version', _text(doc.get('harness_version')), 'The harness version is declared.', 'The harness version must be declared.')
+    repo = doc.get('repository')
+    ok = isinstance(repo, dict)
+    _check(out, 'repository.object', ok, 'The repository section is valid.', 'The repository section must be an object.')
+    repo = repo if ok else {}
+    _check(out, 'repository.name', _text(repo.get('name')), 'The repository name is declared.', 'The repository name must be declared.')
+    default = repo.get('default_branch')
+    _check(out, 'repository.default_branch', _text(default), 'The default branch is declared.', 'The default branch must be declared.')
+    branch = doc.get('branch_policy')
+    ok = isinstance(branch, dict)
+    _check(out, 'branch_policy.object', ok, 'The branch policy is valid.', 'The branch policy must be an object.')
+    branch = branch if ok else {}
+    _check(out, 'branch_policy.canonical_base', _text(branch.get('canonical_base')) and branch.get('canonical_base') == default, 'The canonical base matches the default branch.', 'The canonical base must match repository.default_branch.')
+    _check(out, 'branch_policy.stacked_pull_requests', branch.get('stacked_pull_requests') in STACKING, 'The stacking policy is declared.', 'The stacking policy is invalid.')
+    for key in ('merge_green_predecessors_before_next_sprint', 'require_clean_base', 'require_current_canonical_base'):
+        _check(out, f'branch_policy.{key}', isinstance(branch.get(key), bool), f'{key} is boolean.', f'{key} must be boolean.')
+    proof = doc.get('completion_proof')
+    ok = isinstance(proof, dict)
+    _check(out, 'completion_proof.object', ok, 'The completion proof is valid.', 'The completion proof must be an object.')
+    proof = proof if ok else {}
+    _check(out, 'completion_proof.provider', proof.get('provider') == 'github_actions', 'The provider is GitHub Actions.', 'The provider must be github_actions.')
+    slug = proof.get('repository')
+    slug_valid = isinstance(slug, str) and slug == slug.strip() and bool(SLUG.fullmatch(slug.strip()))
+    _check(out, 'completion_proof.repository', slug_valid, 'The repository uses owner/name form.', 'The repository must use owner/name form.')
+    _check(out, 'completion_proof.workflow', _text(proof.get('workflow')), 'The workflow is declared.', 'The workflow must be declared.')
+    _check(out, 'completion_proof.event', proof.get('event') == 'push', 'The event is push.', 'The event must be push.')
+    _check(out, 'completion_proof.required_conclusion', proof.get('required_conclusion') == 'success', 'The conclusion is success.', 'The conclusion must be success.')
+    _check(out, 'commands.mapping', _map(doc.get('commands')), 'The command map is valid.', 'The command map must contain command strings.')
+    bounds = doc.get('boundaries')
+    ok = isinstance(bounds, dict)
+    _check(out, 'boundaries.object', ok, 'The boundaries section is valid.', 'The boundaries section must be an object.')
+    bounds = bounds if ok else {}
+    _check(out, 'boundaries.protected_paths', _list(bounds.get('protected_paths')), 'The protected paths are valid.', 'The protected paths must be strings.')
+    _check(out, 'boundaries.forbidden_operations', _list(bounds.get('forbidden_operations'), True), 'The forbidden operations are declared.', 'At least one forbidden operation is required.')
+    evidence = doc.get('evidence')
+    ok = isinstance(evidence, dict)
+    _check(out, 'evidence.object', ok, 'The evidence section is valid.', 'The evidence section must be an object.')
+    evidence = evidence if ok else {}
+    _check(out, 'evidence.required', _list(evidence.get('required'), True), 'The required evidence is declared.', 'At least one evidence item is required.')
+    if proof.get('provider') == 'github_actions':
+        required_evidence = evidence.get('required') if isinstance(evidence.get('required'), list) else []
+        has_github_actions = 'github_actions' in required_evidence
+        _check(out, 'evidence.required.github_actions', has_github_actions, 'github_actions evidence is required when using GitHub Actions provider.', 'The required evidence must include github_actions when completion_proof.provider is github_actions.')
+    return InspectionReport(root, path, tuple(out))

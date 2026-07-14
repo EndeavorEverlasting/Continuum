@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EndeavorEverlasting/Continuum/schemas/github-actions-proof.schema.json",
+  "title": "Continuum GitHub Actions completion proof",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "kind", "proof_id", "status", "repository", "policy", "source", "run", "evidence", "blocker"],
+  "properties": {
+    "$schema": {"const": "schemas/github-actions-proof.schema.json"},
+    "schema_version": {"const": 1},
+    "kind": {"const": "continuum.github-actions-proof"},
+    "proof_id": {"type": "string", "pattern": "^proof-[0-9a-f]{16}$"},
+    "status": {"enum": ["passed", "blocked"]},
+    "repository": {
+      "type": "object", "additionalProperties": false,
+      "required": ["slug", "branch", "commit_sha"],
+      "properties": {
+        "slug": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "branch": {"type": "string", "minLength": 1},
+        "commit_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}
+      }
+    },
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["workflow", "event", "required_conclusion"],
+      "properties": {
+        "workflow": {"type": "string", "minLength": 1},
+        "event": {"const": "push"},
+        "required_conclusion": {"const": "success"}
+      }
+    },
+    "source": {"enum": ["github-api", "github-workflow-run-event"]},
+    "run": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "repository", "name", "path", "event", "status", "conclusion", "head_branch", "head_sha", "html_url", "run_attempt"],
+          "properties": {
+            "id": {"type": "integer", "minimum": 1},
+            "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+            "name": {"type": "string", "minLength": 1},
+            "path": {"type": "string", "minLength": 1},
+            "event": {"type": "string", "minLength": 1},
+            "status": {"type": "string", "minLength": 1},
+            "conclusion": {"type": ["string", "null"]},
+            "head_branch": {"type": "string", "minLength": 1},
+            "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+            "html_url": {"type": "string", "minLength": 1},
+            "run_attempt": {"type": "integer", "minimum": 1}
+          }
+        }
+      ]
+    },
+    "evidence": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "status", "reference", "source"],
+          "properties": {
+            "name": {"const": "github_actions"},
+            "status": {"enum": ["passed", "failed"]},
+            "reference": {"type": "string", "minLength": 1},
+            "source": {"enum": ["github-api", "github-workflow-run-event"]}
+          }
+        }
+      ]
+    },
+    "blocker": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["code", "message"],
+          "properties": {
+            "code": {"type": "string", "minLength": 1},
+            "message": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "passed"}}},
+      "then": {"properties": {"blocker": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "blocked"}}},
+      "then": {"not": {"properties": {"blocker": {"type": "null"}}}}
+    }
+  ]
+}

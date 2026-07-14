@@ -113,7 +113,7 @@ class TaskPacketTests(unittest.TestCase):
             self.assertEqual(["inspect"], payload["execution"]["capabilities"])
             self.assertIn("test", payload["contract"]["commands"])
             self.assertEqual(
-                ["validation_results"],
+                ["validation_results", "github_actions"],
                 payload["contract"]["required_evidence"],
             )
 

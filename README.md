@@ -12,15 +12,17 @@ observe -> classify -> topology gate -> compile task + domain -> execute -> reco
 
 ## Current proof boundary
 
-Continuum `0.4.0` implements:
+Continuum `0.5.0` implements:
 
 - repository-contract inspection;
 - named execution-domain validation informed by [WezTerm](https://github.com/wezterm/wezterm);
 - read-only Git evidence and provider-neutral task packets;
 - caller-reported result packets that cannot authorize completion without independent verification;
-- deterministic branch-topology decisions that prevent unnecessary stacked pull requests.
+- deterministic branch-topology decisions that prevent unnecessary stacked pull requests;
+- read-only GitHub Actions completion proof bound to an exact repository, canonical branch, commit SHA, workflow, event, and successful conclusion;
+- automatic `workflow_run` proof artifacts after canonical `main` CI completes.
 
-It does not execute repository commands, attach to terminals, verify artifact contents, apply workflow state, dispatch agents, or mutate GitHub.
+It does not execute repository command maps, attach to terminals, apply workflow state, dispatch agents, or mutate GitHub. The GitHub Actions adapter performs read-only API queries or verifies a GitHub-owned `workflow_run` event.
 
 ## Branch topology
 
@@ -52,6 +54,35 @@ Evaluate a normalized snapshot without network access or mutation:
 continuum topology branch-topology.json --repository . --json
 ```
 
+## Automated CI completion proof
+
+Repositories declare the exact GitHub Actions run that can provide canonical post-push proof:
+
+```json
+{
+  "completion_proof": {
+    "provider": "github_actions",
+    "repository": "EndeavorEverlasting/Continuum",
+    "workflow": "CI",
+    "event": "push",
+    "required_conclusion": "success"
+  }
+}
+```
+
+After a push, Continuum can poll GitHub directly and exit only when the exact workflow run is final:
+
+```bash
+continuum ci-proof . \
+  --commit "$(git rev-parse HEAD)" \
+  --wait-seconds 300 \
+  --json
+```
+
+`GH_TOKEN` or `GITHUB_TOKEN` is used ephemerally when present and is never persisted or rendered. Public repositories can use GitHub's unauthenticated read-only endpoint subject to normal rate limits.
+
+The `Completion Proof` workflow also runs automatically after `CI` completes on `main`. It verifies the GitHub-owned `workflow_run` payload, publishes a job summary, and uploads `completion-proof.json` as an immutable workflow artifact. A failed, cancelled, missing, pending, wrong-branch, wrong-commit, wrong-event, or wrong-workflow run cannot produce a passing proof.
+
 ## Task and result packets
 
 ```bash
@@ -62,7 +93,7 @@ continuum task . \
   --json > task-packet.json
 ```
 
-Caller-reported evidence is transport data, not proof. A reported successful result remains `unverified` and exits nonzero until an independent verifier exists:
+Caller-reported evidence is transport data, not proof. A reported successful result remains `unverified` and exits nonzero unless every required completion claim is independently verified:
 
 ```bash
 continuum result task-packet.json \
@@ -83,9 +114,10 @@ python -m pip install --no-deps -e .
 ## Structure
 
 ```text
-.continuum/                 Repository, branch, and execution-domain contracts
-schemas/                    Machine-readable packet and decision contracts
-src/continuum/              Deterministic inspection and decision code
+.continuum/                 Repository, branch, proof, and execution-domain contracts
+.github/workflows/          CI and automatic completion-proof workflows
+schemas/                    Machine-readable packet, proof, and decision contracts
+src/continuum/              Deterministic inspection, verification, and decision code
 tests/                      Executable contract behavior
 docs/                       Architecture and prior-art decisions
 AGENTS.md                    Agent operating contract

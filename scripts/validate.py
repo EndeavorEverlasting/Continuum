@@ -1,4 +1,4 @@
-"""Run Continuum's dependency-free repository validation."""
+"""Run Continuum's repository validation."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from continuum.branch_topology import BranchTopologyError, evaluate_branch_topol
 from continuum.completion_gates import EvidenceRecord  # noqa: E402
 from continuum.contracts import inspect_repository  # noqa: E402
 from continuum.execution_domains import ExecutionDomainError, load_execution_domains  # noqa: E402
+from continuum.github_actions import GitHubActionsError, load_github_actions_policy, proof_from_workflow_run_event  # noqa: E402
 from continuum.result_packets import ResultPacketError, compile_result_packet  # noqa: E402
 from continuum.task_packets import TaskPacketError, compile_task_packet  # noqa: E402
 
@@ -23,6 +24,7 @@ SCHEMA_PATHS = (
     ROOT / "schemas" / "result-packet.schema.json",
     ROOT / "schemas" / "branch-topology-snapshot.schema.json",
     ROOT / "schemas" / "branch-topology-decision.schema.json",
+    ROOT / "schemas" / "github-actions-proof.schema.json",
 )
 
 
@@ -60,6 +62,9 @@ def main() -> int:
     if task_payload.get("contract", {}).get("branch_policy", {}).get("canonical_base") != "main":
         print("Continuum omitted branch policy from its task packet.")
         return 1
+    if task_payload.get("contract", {}).get("completion_proof", {}).get("workflow") != "CI":
+        print("Continuum omitted completion-proof policy from its task packet.")
+        return 1
 
     evidence = tuple(EvidenceRecord(name=name, status="passed", reference=f"self-validation:{name}") for name in task_packet.contract.required_evidence)
     try:
@@ -91,8 +96,49 @@ def main() -> int:
         print("Continuum did not permit its clean current canonical base.")
         return 1
 
+    try:
+        ci_policy = load_github_actions_policy(ROOT)
+        ci_proof = proof_from_workflow_run_event(
+            ci_policy,
+            {
+                "workflow_run": {
+                    "id": 1,
+                    "repository": {"full_name": "EndeavorEverlasting/Continuum"},
+                    "name": "CI",
+                    "path": ".github/workflows/ci.yml",
+                    "event": "push",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "head_branch": "main",
+                    "head_sha": task_packet.git.head_sha,
+                    "html_url": "https://github.com/EndeavorEverlasting/Continuum/actions/runs/1",
+                    "run_attempt": 1,
+                }
+            },
+        )
+    except GitHubActionsError as exc:
+        print(f"Continuum could not verify its GitHub Actions proof contract: {exc}")
+        return 1
+    if not ci_proof.passed or ci_proof.evidence is None or ci_proof.evidence.get("source") != "github-workflow-run-event":
+        print("Continuum did not compile independent GitHub Actions completion proof.")
+        return 1
+
+    try:
+        import jsonschema
+    except ModuleNotFoundError:
+        print("Continuum validation requires the optional validation dependencies. Install them with: python -m pip install -e '.[validation]'.")
+        return 1
+
+    proof_schema = json.loads((ROOT / "schemas" / "github-actions-proof.schema.json").read_text(encoding="utf-8"))
+    try:
+        jsonschema.validate(ci_proof.to_dict(), proof_schema)
+    except jsonschema.ValidationError as exc:
+        print(f"Continuum compiled a completion proof that violates its schema: {exc.message}")
+        return 1
+
     print(f"Continuum compiled validation task packet {task_packet.task_id} and result packet {result_packet.result_id}.")
-    print("Continuum correctly blocked completion because evidence was not independently verified.")
+    print(f"Continuum compiled independent GitHub Actions proof {ci_proof.proof_id}.")
+    print("Continuum correctly blocked completion because caller-reported evidence was not independently verified.")
     print("Continuum permitted branch creation only from the clean, current canonical base.")
     return 0
 
