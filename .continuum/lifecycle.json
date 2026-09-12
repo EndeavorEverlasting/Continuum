@@ -1,0 +1,22 @@
+{
+  "$schema": "../schemas/lifecycle.schema.json",
+  "schema_version": 1,
+  "status": "dormant",
+  "repository_role": "preserved-reference",
+  "active_control_plane": {
+    "repository": "EndeavorEverlasting/AgentSwitchboard",
+    "role": "active-control-plane"
+  },
+  "historical_version": "0.4.0",
+  "feature_development_allowed": false,
+  "runtime_expansion_allowed": false,
+  "reactivation_allowed": false,
+  "reactivation_policy": "new-explicit-architecture-decision-only",
+  "allowed_change_classes": [
+    "security-fix",
+    "dependency-fix",
+    "archival-maintenance",
+    "documentation-correction"
+  ],
+  "decision_record": "docs/adr/0001-continuum-dormant.md"
+}
