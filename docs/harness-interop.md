@@ -1,37 +1,36 @@
 # Harness contribution interoperability
 
-Continuum and BlacksmithGuild are being used to test how a repository-specific app can donate reusable harness patterns to a repository-neutral orchestration control plane without erasing domain boundaries.
+> **Dormant override:** Continuum no longer absorbs new harness capabilities. This document and `.continuum/harness-contributions.json` are preserved reference material only while `.continuum/lifecycle.json` has `status: dormant`.
 
-## First boundary
+The original experiment used Continuum and BlacksmithGuild to test how a repository-specific app could donate reusable harness patterns to a repository-neutral orchestration layer without erasing domain boundaries. AgentSwitchboard now owns the active control-plane/harness role, so no new contribution may be implemented in Continuum while dormant.
 
-The first integration surface is `.continuum/harness-contributions.json`. It is a read-only, commit-pinned inventory of candidate capabilities. It does not import source code, mutate BlacksmithGuild, or claim that a documented pattern has already been implemented in Continuum.
+## Preserved boundary
+
+The existing integration surface is `.continuum/harness-contributions.json`. It is a read-only, commit-pinned inventory of historical candidate capabilities. It does not import source code, mutate donor repositories, authorize implementation, or create roadmap work.
 
 Each contribution records:
 
 - the exact donor commit and source paths;
-- whether the capability is portable harness plumbing, a repository skill, or domain-specific behavior;
-- whether the donor capability is merged, experimental, or deprecated;
-- whether Continuum should absorb it into its harness, adapt it as a targeted skill, retain it as reference material, or reject it;
-- the concrete capabilities and rationale for that disposition.
+- whether the capability was portable harness plumbing, a repository skill, or domain-specific behavior;
+- whether the donor capability was merged, experimental, or deprecated;
+- the historical disposition considered for Continuum;
+- the capabilities and rationale for that disposition.
 
-`src/continuum/harness_interop.py` rejects mutable source references, path traversal, duplicate identifiers, unknown fields, experimental adoption, and attempts to move domain-specific behavior into the Continuum harness.
+`src/continuum/harness_interop.py` remains preserved validation code. Passing its tests proves the historical manifest is coherent; it does not authorize adoption.
 
 ## Authority chain
 
-1. The donor repository remains authoritative for its source contracts, skills, and runtime behavior.
-2. The pinned contribution manifest is an adoption proposal, not independent runtime proof.
-3. Continuum may implement a contribution only in a later bounded sprint with its own tests, validators, and proof ceiling.
-4. BlacksmithGuild-specific gameplay, launcher, campaign, and runtime behavior remains outside Continuum unless a portable cross-cutting concern is extracted explicitly.
+1. Donor repositories remain authoritative for their source contracts, skills, and runtime behavior.
+2. The pinned contribution manifest is historical/reference metadata, not runtime proof or queued implementation work.
+3. Continuum does not absorb, adapt, or implement contributions while dormant.
+4. AgentSwitchboard is the active control plane for new orchestration/harness capabilities.
+5. Domain-specific donor behavior remains with the donor unless separately factored into the active owner.
 
-## Initial candidates
+## Historical candidates
 
-The first inventory identifies three portable candidates from merged BlacksmithGuild work:
+The existing inventory retains prior candidates for reference, including harness-versus-skill maturity classification, repository-floor/worktree hygiene, and common agent rules with targeted skill routing.
 
-- harness-versus-skill maturity classification;
-- repository-floor and worktree hygiene;
-- common agent rules with targeted skill routing.
-
-The operator terminal environment doctrine remains reference-only because Continuum should expose clean orchestration surfaces without owning personal terminal configuration or game-operator workflows.
+Those entries do not constitute a backlog.
 
 ## Validation
 
@@ -40,4 +39,4 @@ python -m unittest -v tests/test_harness_interop.py
 python -m compileall -q src/continuum/harness_interop.py tests/test_harness_interop.py
 ```
 
-Passing these checks provides contract and static-test proof only. It does not prove cross-repository runtime behavior or complete any future port.
+Passing these checks provides contract/static reference proof only. It does not reactivate Continuum or prove cross-repository runtime behavior.
