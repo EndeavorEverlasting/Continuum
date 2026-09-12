@@ -1,10 +1,18 @@
 # Continuum architecture
 
-Continuum separates intent, durable repository state, deterministic orchestration, bounded agent reasoning, and environmental evidence.
+## Current status
 
-## Actors
+Continuum is **dormant** and retained as a preserved reference implementation. `EndeavorEverlasting/AgentSwitchboard` is the active orchestration/control plane.
 
-| Actor | Responsibility |
+The authoritative lifecycle contract is `.continuum/lifecycle.json`; the accepted decision is `docs/adr/0001-continuum-dormant.md`.
+
+No Continuum component is part of the active control plane while `reactivation_allowed` is false.
+
+## Preserved architecture
+
+Continuum historically separated intent, durable repository state, deterministic orchestration, bounded agent reasoning, and environmental evidence.
+
+| Historical actor | Preserved responsibility |
 | --- | --- |
 | Human | Intent, priorities, policy, and exceptions |
 | Repository | Contracts, code, decisions, validators, and durable memory |
@@ -12,28 +20,34 @@ Continuum separates intent, durable repository state, deterministic orchestratio
 | Agent | Replaceable bounded reasoning and implementation |
 | Environment | Git, CI, runtime, artifact, and service signals |
 
-## Controlled loop
+Historical controlled loop:
 
 ```text
 observe -> topology gate -> task packet -> execution -> result packet -> evidence gate -> transition
 ```
 
+This loop is reference material, not an active runtime ownership model.
+
 ### Branch-topology boundary
 
-Branch selection occurs before task execution. The repository declares a canonical base, stacking policy, merge-first rule, and clean/current-base requirements. A normalized environment snapshot is evaluated without network access or mutation. See [`branch-topology.md`](branch-topology.md).
+The preserved implementation evaluates canonical-base, stacking, clean-base, and current-base rules without network access or mutation. See [`branch-topology.md`](branch-topology.md).
 
 ### Execution-domain boundary
 
-Execution targets are named domains with explicit transports, lifecycle, auto-start policy, and capabilities. This separation is informed by WezTerm's multiplexer architecture. A declaration is not runtime proof.
+Execution targets are represented as named domains with explicit transports, lifecycle, auto-start policy, and capabilities. These contracts remain preserved reference material; no new domain or runtime integration is authorized while dormant.
 
 ### Evidence boundary
 
-Caller-reported evidence is preserved but cannot authorize successful completion. Independent artifact verifiers remain future work. Workflow decisions are advisory and record `applied: false`.
+Caller-reported evidence is preserved but cannot authorize successful completion. Existing evidence-gate behavior remains reference/test material and does not compete with AgentSwitchboard's active evidence and completion system.
 
 ## State ownership
 
-Committed contracts, schemas, tests, policies, and decisions belong in Git. Caches, attachments, process handles, and run state remain local or external. CI artifacts and result packets may preserve durable evidence without polluting feature branches.
+Committed Continuum contracts, schemas, tests, policies, and decisions remain in Git. Caches, attachments, process handles, and run state remain local or external.
 
-## Current implementation boundary
+The lifecycle decision itself is repository state and is enforced by `scripts/validate.py` and CI. Historical PRs or implementation ideas cannot override it.
 
-Version `0.4.0` implements read-only contract, Git, domain, topology, task, result, and transition decisions. It does not execute commands, mutate GitHub, verify referenced artifacts, attach to WezTerm, persist workflow state, or dispatch agents.
+## Dormant boundary
+
+Version `0.4.0` remains the preserved implementation floor. It does not execute commands, mutate GitHub, attach to terminals, dispatch agents, or own active orchestration.
+
+No automatic reactivation condition exists. Any future active role requires a new explicit architecture decision that first changes `.continuum/lifecycle.json`.
