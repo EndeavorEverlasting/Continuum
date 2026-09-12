@@ -1,77 +1,48 @@
 # Continuum
 
-**A local orchestration engine that carries repository context, evidence, and workflow state across agents, sessions, and development sprints.**
+> **Status: DORMANT / PRESERVED REFERENCE**  
+> **Active control plane:** [`EndeavorEverlasting/AgentSwitchboard`](https://github.com/EndeavorEverlasting/AgentSwitchboard)
 
-Continuum moves repeatable software-development coordination out of a human's head and into versioned repository contracts, deterministic gates, and durable evidence. Humans retain intent and policy; replaceable agents receive bounded work.
+Continuum is no longer an active orchestration product or roadmap target. Its existing `0.4.0` implementation is preserved for reference, validation, and historical design context.
 
-## Control loop
+The authoritative lifecycle decision is:
+
+- `.continuum/lifecycle.json`
+- `docs/adr/0001-continuum-dormant.md`
+
+While dormant, feature development and runtime/orchestration expansion are not allowed. The only permitted changes are security fixes, dependency fixes, archival maintenance, and documentation corrections.
+
+There is **no automatic reactivation gate**. Any future attempt to make Continuum active again requires a new explicit architecture decision by the repository owner that first changes the machine-readable lifecycle contract.
+
+## Why it is dormant
+
+AgentSwitchboard now owns the active control-plane responsibilities Continuum was originally expected to grow into, including agent/model routing, bootstrap/runtime resolution, child-agent coordination, repository execution flows, intervention, validation, and evidence-driven completion. Maintaining two active orchestration systems would duplicate ownership and add avoidable complexity.
+
+## Preserved implementation
+
+Continuum `0.4.0` contains reference implementations for:
+
+- repository-contract inspection;
+- named execution-domain validation;
+- read-only Git evidence and provider-neutral task packets;
+- result packets that cannot authorize completion without independent verification;
+- deterministic branch-topology decisions.
+
+These surfaces remain useful historical/reference material. They are not active control-plane dependencies.
+
+## Historical control loop
+
+The preserved implementation modeled:
 
 ```text
 observe -> classify -> topology gate -> compile task + domain -> execute -> record result -> evidence gate -> transition
 ```
 
-## Current proof boundary
-
-Continuum `0.4.0` implements:
-
-- repository-contract inspection;
-- named execution-domain validation informed by [WezTerm](https://github.com/wezterm/wezterm);
-- read-only Git evidence and provider-neutral task packets;
-- caller-reported result packets that cannot authorize completion without independent verification;
-- deterministic branch-topology decisions that prevent unnecessary stacked pull requests.
-
-It does not execute repository commands, attach to terminals, verify artifact contents, apply workflow state, dispatch agents, or mutate GitHub.
-
-## Branch topology
-
-Every governed repository declares branch policy in `.continuum/repository.json`:
-
-```json
-{
-  "branch_policy": {
-    "canonical_base": "main",
-    "stacked_pull_requests": "explicit_only",
-    "merge_green_predecessors_before_next_sprint": true,
-    "require_clean_base": true,
-    "require_current_canonical_base": true
-  }
-}
-```
-
-The default flow is:
-
-```text
-green predecessor PR -> merge -> refresh main -> create next branch from main
-```
-
-A noncanonical base is blocked unless policy allows stacking or a bounded exception includes a reason. A green, mergeable predecessor must still merge first.
-
-Evaluate a normalized snapshot without network access or mutation:
-
-```bash
-continuum topology branch-topology.json --repository . --json
-```
-
-## Task and result packets
-
-```bash
-continuum task . \
-  --domain local-inspection \
-  --owned "bounded sprint scope" \
-  --forbidden "unrelated changes" \
-  --json > task-packet.json
-```
-
-Caller-reported evidence is transport data, not proof. A reported successful result remains `unverified` and exits nonzero until an independent verifier exists:
-
-```bash
-continuum result task-packet.json \
-  --outcome succeeded \
-  --evidence validation_results=passed=artifacts/validation.json \
-  --json
-```
+That model is retained for reference only. Active orchestration belongs to AgentSwitchboard.
 
 ## Validation
+
+Dormant repositories still need to remain internally coherent:
 
 ```bash
 python scripts/validate.py
@@ -80,15 +51,17 @@ python -m compileall -q src tests scripts
 python -m pip install --no-deps -e .
 ```
 
+Passing these checks proves repository consistency only. It does not reactivate Continuum.
+
 ## Structure
 
 ```text
-.continuum/                 Repository, branch, and execution-domain contracts
-schemas/                    Machine-readable packet and decision contracts
-src/continuum/              Deterministic inspection and decision code
-tests/                      Executable contract behavior
-docs/                       Architecture and prior-art decisions
-AGENTS.md                    Agent operating contract
+.continuum/                 Repository contracts, including lifecycle status
+schemas/                    Machine-readable preserved contracts
+docs/adr/                   Architecture decisions
+src/continuum/              Preserved deterministic implementation
+tests/                      Contract and regression tests
+AGENTS.md                    Dormant repository operating contract
 ```
 
 Continuum is available under the [MIT License](LICENSE).
