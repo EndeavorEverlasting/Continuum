@@ -18,12 +18,63 @@ from continuum.task_packets import TaskPacketError, compile_task_packet  # noqa:
 
 SCHEMA_PATHS = (
     ROOT / "schemas" / "repository.schema.json",
+    ROOT / "schemas" / "lifecycle.schema.json",
     ROOT / "schemas" / "execution-domains.schema.json",
     ROOT / "schemas" / "task-packet.schema.json",
     ROOT / "schemas" / "result-packet.schema.json",
     ROOT / "schemas" / "branch-topology-snapshot.schema.json",
     ROOT / "schemas" / "branch-topology-decision.schema.json",
 )
+
+LIFECYCLE_PATH = ROOT / ".continuum" / "lifecycle.json"
+EXPECTED_CONTROL_PLANE = "EndeavorEverlasting/AgentSwitchboard"
+EXPECTED_DECISION_RECORD = "docs/adr/0001-continuum-dormant.md"
+EXPECTED_ALLOWED_CHANGE_CLASSES = {
+    "security-fix",
+    "dependency-fix",
+    "archival-maintenance",
+    "documentation-correction",
+}
+
+
+def validate_lifecycle() -> tuple[bool, str]:
+    try:
+        lifecycle = json.loads(LIFECYCLE_PATH.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return False, f"Continuum could not parse dormant lifecycle contract: {exc}."
+
+    expected = {
+        "$schema": "../schemas/lifecycle.schema.json",
+        "schema_version": 1,
+        "status": "dormant",
+        "repository_role": "preserved-reference",
+        "historical_version": "0.4.0",
+        "feature_development_allowed": False,
+        "runtime_expansion_allowed": False,
+        "reactivation_allowed": False,
+        "reactivation_policy": "new-explicit-architecture-decision-only",
+        "decision_record": EXPECTED_DECISION_RECORD,
+    }
+    for key, value in expected.items():
+        if lifecycle.get(key) != value:
+            return False, f"Continuum lifecycle field {key!r} must remain {value!r}."
+
+    control_plane = lifecycle.get("active_control_plane")
+    if control_plane != {
+        "repository": EXPECTED_CONTROL_PLANE,
+        "role": "active-control-plane",
+    }:
+        return False, "Continuum lifecycle must name AgentSwitchboard as the active control plane."
+
+    allowed_change_classes = lifecycle.get("allowed_change_classes")
+    if not isinstance(allowed_change_classes, list) or set(allowed_change_classes) != EXPECTED_ALLOWED_CHANGE_CLASSES:
+        return False, "Continuum dormant allowed_change_classes drifted."
+
+    decision_path = ROOT / EXPECTED_DECISION_RECORD
+    if not decision_path.is_file():
+        return False, f"Continuum dormant ADR is missing: {decision_path}."
+
+    return True, "Continuum lifecycle is DORMANT; AgentSwitchboard is the active control plane."
 
 
 def main() -> int:
@@ -37,6 +88,11 @@ def main() -> int:
             print(f"Continuum found an unsupported or missing JSON Schema dialect in {schema_path}.")
             return 1
         print(f"Continuum parsed the JSON Schema document at {schema_path}.")
+
+    lifecycle_ok, lifecycle_message = validate_lifecycle()
+    print(lifecycle_message)
+    if not lifecycle_ok:
+        return 1
 
     report = inspect_repository(ROOT)
     print(report.render_english())
@@ -88,12 +144,13 @@ def main() -> int:
         print(f"Continuum could not evaluate its branch topology: {exc}")
         return 1
     if not topology.allowed or topology.decision != "create_branch_from_canonical":
-        print("Continuum did not permit its clean current canonical base.")
+        print("Continuum did not permit its clean, current canonical base for maintenance validation.")
         return 1
 
     print(f"Continuum compiled validation task packet {task_packet.task_id} and result packet {result_packet.result_id}.")
     print("Continuum correctly blocked completion because evidence was not independently verified.")
-    print("Continuum permitted branch creation only from the clean, current canonical base.")
+    print("Continuum preserved its branch-topology behavior for maintenance validation only.")
+    print("Continuum remains dormant; passing validation does not authorize feature or runtime development.")
     return 0
 
 
